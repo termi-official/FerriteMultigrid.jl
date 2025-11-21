@@ -32,16 +32,17 @@ include("multilevel.jl")
 include("gallery.jl")
 include("precs.jl")
 
-export 
+export
     FESpace,
     AbstractPMultigrid,
     assemble,
-    DiffusionMultigrid, 
+    DiffusionMultigrid,
     LinearElasticityMultigrid,
-    ConstantCoefficient, 
+    HyperelasticityMultigrid,
+    ConstantCoefficient,
     Galerkin,
-    Rediscretization, 
-    DirectProjection, 
+    Rediscretization,
+    DirectProjection,
     StepProjection,
     SmoothedAggregationCoarseSolver,
     RugeStubenCoarseSolver,
