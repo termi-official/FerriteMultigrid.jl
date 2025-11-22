@@ -22,8 +22,23 @@ function _element_prolongator!(
 
     # Invert the mass matrix to get the prolongator
     _element_mass_matrix!(Me, fine_cv)
-    lu_fact = lu!(Me)
-    ldiv!(Pe, lu_fact, Pe)
+
+    # Check if matrix is singular and use pseudo-inverse if needed
+    try
+        lu_fact = lu!(Me)
+        ldiv!(Pe, lu_fact, Pe)
+    catch e
+        if e isa SingularException
+            # Use pseudo-inverse for singular mass matrices
+            # This can happen at constrained DOFs
+            Me_pinv = pinv(Me)
+            Pe_temp = copy(Pe)
+            mul!(Pe, Me_pinv, Pe_temp)
+        else
+            rethrow(e)
+        end
+    end
+
     return drop_small_entries!(Pe)
 end
 

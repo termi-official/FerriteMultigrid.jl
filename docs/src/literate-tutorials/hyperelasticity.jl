@@ -346,17 +346,19 @@ u_pmg, stats_pmg = solve_nonlinear(solver_pmg, dh, cv, fv, mp, dbcs, ΓN)
 stats_pmg = SolverStats("P-MG (Galerkin)", stats_pmg.newton_iters, stats_pmg.linear_iters,
                          stats_pmg.linear_times, stats_pmg.residuals)
 
-## 2. Vanilla AMG using AlgebraicMultigrid directly
+## 2. Vanilla AMG using AlgebraicMultigrid (smoothed aggregation)
 println("\n" * "="^60)
 println("Solving with Algebraic Multigrid (AMG)")
 println("="^60)
-using AlgebraicMultigrid
 
 solver_amg = function(x, K, b)
-    ml_amg = ruge_stuben(K, presmoother=GaussSeidel(), postsmoother=GaussSeidel())
-    x_sol, history = AlgebraicMultigrid.solve(ml_amg, b; log=true, reltol=1e-6, maxiter=100)
-    x .= x_sol
-    return history.iters
+    # Use smoothed aggregation AMG with near null space
+    ml_amg = smoothed_aggregation(K, B)
+
+    # Use iterative solving with AMG as preconditioner
+    ch = IterativeSolvers.cg!(x, K, b, Pl=ml_amg, maxiter=1000, log=true, reltol=1e-6)
+
+    return ch[2].iters
 end
 
 u_amg, stats_amg = solve_nonlinear(solver_amg, dh, cv, fv, mp, dbcs, ΓN)
