@@ -87,6 +87,7 @@ function linear_elasticity_2d(C)
     dim = 2
     order = 4
     ip = Lagrange{RefTriangle,order}()^dim # vector valued interpolation
+    ip_coarse = Lagrange{RefTriangle,1}()^dim
 
     qr = QuadratureRule{RefTriangle}(8)
     qr_face = FacetQuadratureRule{RefTriangle}(6)
@@ -97,6 +98,10 @@ function linear_elasticity_2d(C)
     dh = DofHandler(grid)
     add!(dh, :u, ip)
     close!(dh)
+
+    dh_coarse = DofHandler(grid)
+    add!(dh_coarse, :u, ip_coarse)
+    close!(dh_coarse)
 
     ch = ConstraintHandler(dh)
     add!(ch, Dirichlet(:u, getfacetset(grid, "bottom"), (x, t) -> 0.0, 2))
@@ -112,31 +117,35 @@ function linear_elasticity_2d(C)
     assemble_external_forces!(b, dh, getfacetset(grid, "top"), facetvalues, traction)
     apply!(A, b, ch)
 
-    return A, b, dh, cellvalues, ch
+    return A, b, dh, dh_coarse, cellvalues, ch
 end
 
-function create_nns(dh)
-    ##Ndof = ndofs(dh)
+function create_nns(dh, fieldname = first(dh.field_names))
+    @assert length(dh.field_names) == 1 "Only a single field is supported for now."
+
+    coords_flat = zeros(ndofs(dh))
+    apply_analytical!(coords_flat, dh, fieldname, x -> x)
+    coords = reshape(coords_flat, (length(coords_flat) ÷ 2, 2))
+
     grid = dh.grid
-    Ndof = 2 * (grid.nodes |> length) # nns at p = 1 for AMG
-    B = zeros(Float64, Ndof, 3)
+    B = zeros(Float64, ndofs(dh), 3)
     B[1:2:end, 1] .= 1 # x - translation
     B[2:2:end, 2] .= 1 # y - translation
 
     # in-plane rotation (x,y) → (-y,x)
-    coords = reduce(hcat, grid.nodes .|> (n -> n.x |> collect))' # convert nodes to 2d array
-    y = coords[:, 2]
     x = coords[:, 1]
+    y = coords[:, 2]
     B[1:2:end, 3] .= -y
     B[2:2:end, 3] .= x
+
     return B
 end
 
 using FerriteMultigrid
 
-A, b, dh, cellvalues, ch = linear_elasticity_2d(C);
+A, b, dh, dh_coarse, cellvalues, ch = linear_elasticity_2d(C);
 
-B = create_nns(dh)
+B = create_nns(dh_coarse)
 
 fe_space = FESpace(dh, cellvalues, ch)
 

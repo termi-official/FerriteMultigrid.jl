@@ -97,26 +97,33 @@ function assemble_global!(K, g, dh, cv, fv, mp, u, ΓN)
     return
 end;
 
-function create_nns(dh)
-    ##Ndof = ndofs(dh)
+function create_nns(dh, fieldname = first(dh.field_names))
+    @assert length(dh.field_names) == 1 "Only a single field is supported for now."
+
+    coords_flat = zeros(ndofs(dh))
+    apply_analytical!(coords_flat, dh, fieldname, x -> x)
+    coords = reshape(coords_flat, (length(coords_flat) ÷ 3, 3))
+
     grid = dh.grid
-    Ndof = 3 * (grid.nodes |> length) # nns at p = 1 for AMG
-    B = zeros(Float64, Ndof, 6)
+    B = zeros(Float64, ndofs(dh), 6)
     B[1:3:end, 1] .= 1 # x - translation
     B[2:3:end, 2] .= 1 # y - translation
     B[3:3:end, 3] .= 1 # z - translation
 
     # rotations
-    coords = reduce(hcat, grid.nodes .|> (n -> n.x |> collect))' # convert nodes to 2d array
-    z = coords[:, 3]
-    y = coords[:, 2]
     x = coords[:, 1]
+    y = coords[:, 2]
+    z = coords[:, 3]
+    # Around x
     B[2:3:end, 4] .= -z
     B[3:3:end, 4] .= y
+    # Around y
     B[1:3:end, 5] .= z
     B[3:3:end, 5] .= -x
+    # Around z
     B[1:3:end, 6] .= -y
-    B[3:3:end, 6] .= x
+    B[2:3:end, 6] .= x
+
     return B
 end
 
@@ -191,7 +198,11 @@ function _solve()
     K = allocate_matrix(dh)
     g = zeros(_ndofs)
 
-    B = create_nns(dh)
+    # FIXME this needs better integration
+    dh_coarse = DofHandler(grid)
+    add!(dh_coarse, :u, Lagrange{RefTetrahedron, 1}()^3) # Add a displacement field
+    close!(dh_coarse)
+    B = create_nns(dh_coarse)
     config_gal = pmultigrid_config(coarse_strategy = Galerkin())
     fe_space = FESpace(dh, cv, ch)
 
