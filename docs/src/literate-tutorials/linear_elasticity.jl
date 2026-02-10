@@ -18,7 +18,7 @@
 #
 using Ferrite, FerriteGmsh, SparseArrays
 using Downloads: download
-using IterativeSolvers
+using IterativeSolvers, TimerOutputs
 
 Emod = 200.0e3 # Young's modulus [MPa]
 ν = 0.3        # Poisson's ratio [-]
@@ -185,15 +185,29 @@ fe_space = FESpace(dh, cellvalues, ch)
 
 # ### P-multigrid Configuration
 
+reset_timer!()
+
+# #### 0. CG as baseline
+@timeit "CG" x_cg = IterativeSolvers.cg(A, b; maxiter = 1000, verbose=false)
+
 # #### 1. Galerkin Coarsening Strategy
 config_gal = pmultigrid_config(coarse_strategy = Galerkin())
-x_gal, res_gal = solve(A, b,fe_space, config_gal;B = B, log=true, rtol = 1e-10)
+@timeit "Galerkin only" x_gal, res_gal = solve(A, b,fe_space, config_gal;B = B, log=true, rtol = 1e-10)
+
+builder_gal = PMultigridPreconBuilder(fe_space, config_gal)
+@timeit "Build preconditioner" Pl_gal = builder_gal(A)[1]
+@timeit "Galerkin CG" IterativeSolvers.cg(A, b; Pl = Pl_gal, maxiter = 1000, verbose=false)
 
 # #### 2. Rediscretization Coarsening Strategy
 ## Rediscretization Coarsening Strategy
 config_red = pmultigrid_config(coarse_strategy = Rediscretization(LinearElasticityMultigrid(C)))
-x_red, res_red = solve(A, b, fe_space, config_red; B = B, log=true, rtol = 1e-10)
+@timeit "Rediscretization only" x_red, res_red = solve(A, b, fe_space, config_red; B = B, log=true, rtol = 1e-10)
 
+builder_red = PMultigridPreconBuilder(fe_space, config_red)
+@timeit "Build preconditioner" Pl_red = builder_red(A)[1]
+@timeit "Rediscretization CG" IterativeSolvers.cg(A, b; Pl = Pl_red, maxiter = 1000, verbose=false)
+
+print_timer(title = "Analysis with $(getncells(dh.grid)) elements", linechars = :ascii)
 
 # ### Test the solution
 using Test
