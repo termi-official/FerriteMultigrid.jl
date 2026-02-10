@@ -222,11 +222,11 @@ function _solve()
 
         ## Compute increment using conjugate gradients
         fill!(ΔΔu, 0.0)
-        @timeit "Build preconditioner" Pl = builder(K)[1]
-        @timeit "linear solve (1)" IterativeSolvers.cg!(ΔΔu, K, g; Pl, maxiter = 1000, verbose=false)
-        ## @timeit "linear solve (2)"  (_1, _2) = solve(K, g, fe_space, config_gal;B = B, log=true, rtol = 1e-10)
+        @timeit "Setup preconditioner" Pl = builder(K)[1]
+        @timeit "CG" IterativeSolvers.cg!(ΔΔu, K, g; Pl, maxiter = 1000, verbose=false)
+        @timeit "Galerkin only" solve(K, g, fe_space, config_gal;B = B, log=true, rtol = 1e-10)
         fill!(ΔΔu, 0.0)
-        @timeit "linear solve (3)" IterativeSolvers.cg!(ΔΔu, K, g; maxiter = 1000, verbose=false)
+        @timeit "Galerkin CG" IterativeSolvers.cg!(ΔΔu, K, g; maxiter = 1000, verbose=false)
 
         apply_zero!(ΔΔu, ch)
         Δu .-= ΔΔu
