@@ -1,7 +1,7 @@
 # FerriteMultigrid.jl
 
-[![Build Status](https://github.com/abdelrahman912/FerriteMultigrid.jl/workflows/CI/badge.svg)](https://github.com/abdelrahman912/FerriteMultigrid.jl/actions)
-[![](https://img.shields.io/badge/docs-dev-blue.svg)](https://abdelrahman912.github.io/FerriteMultigrid.jl/dev/)
+[![Build Status](https://github.com/termi-official/FerriteMultigrid.jl/workflows/CI/badge.svg)](https://github.com/termi-official/FerriteMultigrid.jl/actions)
+[![](https://img.shields.io/badge/docs-dev-blue.svg)](https://termi-official.github.io/FerriteMultigrid.jl/dev/)
 
 
 **FerriteMultigrid.jl** is a lightweight, flexible **p-multigrid framework** designed for high-order finite element problems in Julia.  
@@ -25,5 +25,5 @@ x, res = solve(K, f, fe_space, config; log = true, rtol = 1e-10)
 
 ## Acknowledgement
 
-This framework is primarily developed at the [chair of continuum mechanics at Ruhr University Bochum](https://www.lkm.ruhr-uni-bochum.de/) under 
-the supervision of [@termi-official](https://github.com/termi-official).
+This framework is primarily developed by [Abdelrahman Fathy](https://github.com/Abdelrahman912) at the [chair of continuum mechanics at Ruhr University Bochum](https://www.lkm.ruhr-uni-bochum.de/) under 
+the supervision of [Dennis Ogiermann](https://github.com/termi-official).

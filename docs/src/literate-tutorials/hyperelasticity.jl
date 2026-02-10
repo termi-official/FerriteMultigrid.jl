@@ -1,3 +1,17 @@
+# # [Nonlinear Elasticity](@id tutorial-nonlinear-elasticity)
+#
+#md # !!! note
+#md #     The full explanation for the underlying FEM theory in this example can be found in the [Hyperelasticity](https://ferrite-fem.github.io/Ferrite.jl/stable/tutorials/hyperelasticity/) tutorial of the Ferrite.jl documentation.
+#
+#
+# ## Implementation
+
+# The following code is based on the [Hyperelasticity](https://ferrite-fem.github.io/Ferrite.jl/stable/tutorials/hyperelasticity/) tutorial from the Ferrite.jl documentation, with some comments removed for brevity.
+# There are two main modifications:
+#
+# 1. Second-order `Lagrange` shape functions are used for field approximation: `ip = Lagrange{RefTriangle,2}()^2`.
+# 2. Four quadrature points are used to accommodate the second-order shape functions: `qr = QuadratureRule{RefTriangle}(4)`.
+
 using Ferrite, Tensors, TimerOutputs, IterativeSolvers
 
 using FerriteMultigrid
@@ -97,26 +111,50 @@ function assemble_global!(K, g, dh, cv, fv, mp, u, ΓN)
     return
 end;
 
-function create_nns(dh)
-    ##Ndof = ndofs(dh)
+# ### Near Null Space (NNS)
+# 
+# In multigrid methods for problems with vector-valued unknowns, such as elasticity, 
+# the near null space represents the low energy mode or the smooth error that needs to be captured
+# in the coarser grid when using SA-AMG (Smoothed Aggregation Algebraic Multigrid), more on the topic
+# can be found  in [schroder2010](@citet).
+
+# For 3D linear elasticity problems, the rigid body modes are:
+# 1. Translation in the x-direction,
+# 2. Translation in the y-direction,
+# 3. Translation in the z-direction,
+# 4. Rotation about the x-axis (i.e., $x_1$): each point (x, y, z) is mapped to (0, -z, y).
+# 5. Rotation about the y-axis (i.e., $x_2$): each point (x, y, z) is mapped to (z, 0, -x).
+# 6. Rotation about the z-axis (i.e., $x_3$): each point (x, y, z) is mapped to (-y, x, 0).
+#
+# The function `create_nns` constructs the NNS matrix `B ∈ ℝ^{n × 6}`, where `n` is the number of degrees of freedom (DOFs)
+# for the case of `p` = 1 (i.e., linear interpolation), because `B` is only relevant for AMG. 
+function create_nns(dh, fieldname = first(dh.field_names))
+    @assert length(dh.field_names) == 1 "Only a single field is supported for now."
+
+    coords_flat = zeros(ndofs(dh))
+    apply_analytical!(coords_flat, dh, fieldname, x -> x)
+    coords = reshape(coords_flat, (length(coords_flat) ÷ 3, 3))
+
     grid = dh.grid
-    Ndof = 3 * (grid.nodes |> length) # nns at p = 1 for AMG
-    B = zeros(Float64, Ndof, 6)
+    B = zeros(Float64, ndofs(dh), 6)
     B[1:3:end, 1] .= 1 # x - translation
     B[2:3:end, 2] .= 1 # y - translation
     B[3:3:end, 3] .= 1 # z - translation
 
     ## rotations
-    coords = reduce(hcat, grid.nodes .|> (n -> n.x |> collect))' # convert nodes to 2d array
-    z = coords[:, 3]
-    y = coords[:, 2]
     x = coords[:, 1]
+    y = coords[:, 2]
+    z = coords[:, 3]
+    ## Around x
     B[2:3:end, 4] .= -z
     B[3:3:end, 4] .= y
+    ## Around y
     B[1:3:end, 5] .= z
     B[3:3:end, 5] .= -x
+    ## Around z
     B[1:3:end, 6] .= -y
-    B[3:3:end, 6] .= x
+    B[2:3:end, 6] .= x
+
     return B
 end
 
@@ -191,7 +229,11 @@ function _solve()
     K = allocate_matrix(dh)
     g = zeros(_ndofs)
 
-    B = create_nns(dh)
+    ## FIXME this needs better integration
+    dh_coarse = DofHandler(grid)
+    add!(dh_coarse, :u, Lagrange{RefTetrahedron, 1}()^3) # Add a displacement field
+    close!(dh_coarse)
+    B = create_nns(dh_coarse)
     config_gal = pmultigrid_config(coarse_strategy = Galerkin())
     fe_space = FESpace(dh, cv, ch)
 
