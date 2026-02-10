@@ -35,6 +35,7 @@ function coarsen_order(fe_space::FESpace, p::Int)
     add!(coarse_dh, dh.field_names |> first, ip) # FIXME: better way to handle this?
     close!(coarse_dh)
 
+    @assert all(ch.affine_inhomogeneities .== nothing) "Affine constraints are not supported"
 
     coarse_ch = ConstraintHandler(coarse_dh)
     for dbc in ch.dbcs

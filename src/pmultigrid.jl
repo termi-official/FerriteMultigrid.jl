@@ -14,7 +14,10 @@ and is defined as follows:
 \mathcal{I}_{p-1}^p (\mathbf{v}_{p-1}) = (\mathbf{M}_p)^{-1} \mathbf{P}_{p-1}^p \, \mathbf{v}_{p-1}
 ```
 """
-struct Galerkin <: AbstractCoarseningStrategy end
+struct Galerkin <: AbstractCoarseningStrategy
+    is_sym::Bool
+end
+Galerkin() = Galerkin(true)
 
 """
     Rediscretization{TP <: AbstractPMultigrid} <: AbstractCoarseningStrategy
@@ -23,7 +26,9 @@ It is used when the `Rediscretization` strategy is specified in the `pmultigrid_
 """
 struct Rediscretization{TP <: AbstractPMultigrid} <: AbstractCoarseningStrategy
     problem::TP
+    is_sym::Bool
 end
+Rediscretization(problem) = Rediscretization(problem, true)
 
 ## defines how we project from fine to coarse grid
 abstract type AbstractProjectionStrategy end
@@ -66,8 +71,10 @@ pmultigrid_config(;coarse_strategy = Galerkin(), proj_strategy = DirectProjectio
 function pmultigrid(
     A::TA,
     fe_space::FESpace,
-    pgrid_config::PMultigridConfiguration ,
-    pcoarse_solver , 
+    pgrid_config::PMultigridConfiguration,
+    pcoarse_solver, 
+    u = nothing,
+    p = nothing,
     ::Type{Val{bs}} = Val{1};
     presmoother = GaussSeidel(),
     postsmoother = GaussSeidel(),
@@ -76,49 +83,48 @@ function pmultigrid(
     levels = Vector{Level{TA,TA,Adjoint{T,TA}}}()
     w = MultiLevelWorkspace(Val{bs}, eltype(A))
     residual!(w, size(A, 1))
-    
-    p = fe_space |> order
+
+    degree = fe_space |> order
     fespaces = Vector{FESpace}()
     push!(fespaces, fe_space)
 
     ps = pgrid_config.proj_strategy
     cs = pgrid_config.coarse_strategy
-    step  = _calculate_step(ps, p)
+    step  = _calculate_step(ps, degree)
 
-    while p > 1
+    while degree > 1
         # reduce the polynomial order
-        p = p - step > 1 ? p - step : 1
+        degree = degree - step > 1 ? degree - step : 1
 
         fine_fespace = fespaces[end]
-        coarse_fespace = coarsen_order(fine_fespace, p)
+        coarse_fespace = coarsen_order(fine_fespace, degree)
         push!(fespaces, coarse_fespace)
 
-        A = _extend_hierarchy!(levels, fine_fespace, coarse_fespace, A, cs)
+        A = extend_hierarchy!(levels, fine_fespace, coarse_fespace, A, cs, u, p)
 
         coarse_x!(w, size(A, 1))
         coarse_b!(w, size(A, 1))
         residual!(w, size(A, 1))
-
-       
     end
     return MultiLevel(levels, A, pcoarse_solver(A), presmoother, postsmoother, w)
 end
 
-function _extend_hierarchy!(levels, fine_fespace::FESpace, coarse_fespace::FESpace, A, ::Galerkin)
+function extend_hierarchy!(levels, fine_fespace::FESpace, coarse_fespace::FESpace, A, cs::Galerkin, u, p)
     P = build_prolongator(fine_fespace, coarse_fespace)
-    R = P' # TODO: do we need other method to compute R?
+    R = build_restriction(coarse_fespace, fine_fespace, P, cs.is_sym)
     push!(levels, Level(A, P, R))
-    A = R * A * P # Galerikn projection
+    A = R * A * P # Galerkin projection
     return A
 end
 
-function _extend_hierarchy!(levels, fine_fespace::FESpace, coarse_fespace::FESpace, A, cs::Rediscretization)
+function extend_hierarchy!(levels, fine_fespace::FESpace, coarse_fespace::FESpace, A, cs::Rediscretization, u, p)
     P = build_prolongator(fine_fespace, coarse_fespace)
-    R = P' # TODO: do we need other method to compute R?
+    R = build_restriction(coarse_fespace, fine_fespace, P, cs.is_sym)
     push!(levels, Level(A, P, R))
 
     problem = cs.problem
-    A = assemble(problem, coarse_fespace)
+    # TODO use FerriteOperators
+    A = assemble(problem, coarse_fespace, u, p)
     return A
 end
 

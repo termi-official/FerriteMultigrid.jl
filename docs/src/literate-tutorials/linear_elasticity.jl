@@ -18,6 +18,7 @@
 #
 using Ferrite, FerriteGmsh, SparseArrays
 using Downloads: download
+using IterativeSolvers, TimerOutputs
 
 Emod = 200.0e3 # Young's modulus [MPa]
 ν = 0.3        # Poisson's ratio [-]
@@ -102,11 +103,11 @@ function linear_elasticity_2d(C)
     addfacetset!(grid, "bottom", x -> abs(x[2]) < 1.0e-6)
 
     dim = 2
-    order = 2 # quadratic interpolation
+    order = 4
     ip = Lagrange{RefTriangle,order}()^dim # vector valued interpolation
 
-    qr = QuadratureRule{RefTriangle}(4) # 4 quadrature point
-    qr_face = FacetQuadratureRule{RefTriangle}(1)
+    qr = QuadratureRule{RefTriangle}(8)
+    qr_face = FacetQuadratureRule{RefTriangle}(6)
 
     cellvalues = CellValues(qr, ip)
     facetvalues = FacetValues(qr_face, ip)
@@ -121,7 +122,7 @@ function linear_elasticity_2d(C)
     close!(ch)
 
     traction(x) = Vec(0.0, 20.0e3 * x[1])
-    
+
     A = allocate_matrix(dh)
     assemble_global!(A, dh, cellvalues, C)
 
@@ -184,24 +185,38 @@ fe_space = FESpace(dh, cellvalues, ch)
 
 # ### P-multigrid Configuration
 
+reset_timer!()
+
+# #### 0. CG as baseline
+@timeit "CG" x_cg = IterativeSolvers.cg(A, b; maxiter = 1000, verbose=false)
+
 # #### 1. Galerkin Coarsening Strategy
 config_gal = pmultigrid_config(coarse_strategy = Galerkin())
-x_gal, res_gal = solve(A, b,fe_space, config_gal;B = B, log=true, rtol = 1e-10)
+@timeit "Galerkin only" x_gal, res_gal = solve(A, b,fe_space, config_gal;B = B, log=true, rtol = 1e-10)
+
+builder_gal = PMultigridPreconBuilder(fe_space, config_gal)
+@timeit "Build preconditioner" Pl_gal = builder_gal(A)[1]
+@timeit "Galerkin CG" IterativeSolvers.cg(A, b; Pl = Pl_gal, maxiter = 1000, verbose=false)
 
 # #### 2. Rediscretization Coarsening Strategy
 ## Rediscretization Coarsening Strategy
 config_red = pmultigrid_config(coarse_strategy = Rediscretization(LinearElasticityMultigrid(C)))
-x_red, res_red = solve(A, b, fe_space, config_red; B = B, log=true, rtol = 1e-10)
+@timeit "Rediscretization only" x_red, res_red = solve(A, b, fe_space, config_red; B = B, log=true, rtol = 1e-10)
 
+builder_red = PMultigridPreconBuilder(fe_space, config_red)
+@timeit "Build preconditioner" Pl_red = builder_red(A)[1]
+@timeit "Rediscretization CG" IterativeSolvers.cg(A, b; Pl = Pl_red, maxiter = 1000, verbose=false)
+
+print_timer(title = "Analysis with $(getncells(dh.grid)) elements", linechars = :ascii)
 
 # ### Test the solution
 using Test
 @testset "Linear Elasticity Example" begin
     println("Final residual with Galerkin coarsening: ", res_gal[end])
-    @test A * x_gal ≈ b
+    @test A * x_gal ≈ b atol=1e-4
     println("Final residual with Rediscretization coarsening: ", res_red[end])
-    @test A * x_red ≈ b
-end                                                                                                                       
+    @test A * x_red ≈ b atol=1e-4
+end
 
 
 

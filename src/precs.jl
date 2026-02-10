@@ -10,6 +10,6 @@ function PMultigridPreconBuilder(fe_space::FESpace, pgrid_config::PMultigridConf
     return PMultigridPreconBuilder(fe_space, pgrid_config , setup_coarse_solver(pcoarse_solvertype; kwargs...), blocksize, kwargs)
 end
 
-function (b::PMultigridPreconBuilder)(A::AbstractSparseMatrixCSC, p)
+function (b::PMultigridPreconBuilder)(A::AbstractSparseMatrixCSC, p = nothing)
     return (aspreconditioner(pmultigrid(SparseMatrixCSC(A), b.fe_space, b.pgrid_config, b.pcoarse_solver, Val{b.blocksize}; b.kwargs...)), I)
 end

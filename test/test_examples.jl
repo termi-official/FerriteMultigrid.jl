@@ -31,3 +31,11 @@ module TestLinearElasticityExample
         end
     end
 end
+
+module TestHyperelasticityExample
+    mktempdir() do dir
+        cd(dir) do
+            include(joinpath(@__DIR__, "../docs/src/literate-tutorials/hyperelasticity.jl"))
+        end
+    end
+end
