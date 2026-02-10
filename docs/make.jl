@@ -54,8 +54,12 @@ bibtex_plugin = CitationBibliography(
 if !liveserver
     @timeit dto "deploydocs" deploydocs(
         repo = "github.com/termi-official/FerriteMultigrid.jl.git",
-        devbranch = "main",  
-        push_preview = true
+        devbranch = "main",
+        push_preview = true,
+        versions = [
+            "stable" => "v^",
+            "dev" => "dev"
+        ]
     )
 end
 
