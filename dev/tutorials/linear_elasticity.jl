@@ -1,5 +1,6 @@
 using Ferrite, FerriteGmsh, SparseArrays
 using Downloads: download
+using IterativeSolvers, TimerOutputs
 
 Emod = 200.0e3 # Young's modulus [MPa]
 ν = 0.3        # Poisson's ratio [-]
@@ -84,11 +85,12 @@ function linear_elasticity_2d(C)
     addfacetset!(grid, "bottom", x -> abs(x[2]) < 1.0e-6)
 
     dim = 2
-    order = 2 # quadratic interpolation
+    order = 4
     ip = Lagrange{RefTriangle,order}()^dim # vector valued interpolation
+    ip_coarse = Lagrange{RefTriangle,1}()^dim
 
-    qr = QuadratureRule{RefTriangle}(4) # 4 quadrature point
-    qr_face = FacetQuadratureRule{RefTriangle}(1)
+    qr = QuadratureRule{RefTriangle}(8)
+    qr_face = FacetQuadratureRule{RefTriangle}(6)
 
     cellvalues = CellValues(qr, ip)
     facetvalues = FacetValues(qr_face, ip)
@@ -96,6 +98,10 @@ function linear_elasticity_2d(C)
     dh = DofHandler(grid)
     add!(dh, :u, ip)
     close!(dh)
+
+    dh_coarse = DofHandler(grid)
+    add!(dh_coarse, :u, ip_coarse)
+    close!(dh_coarse)
 
     ch = ConstraintHandler(dh)
     add!(ch, Dirichlet(:u, getfacetset(grid, "bottom"), (x, t) -> 0.0, 2))
@@ -111,47 +117,65 @@ function linear_elasticity_2d(C)
     assemble_external_forces!(b, dh, getfacetset(grid, "top"), facetvalues, traction)
     apply!(A, b, ch)
 
-    return A, b, dh, cellvalues, ch
+    return A, b, dh, dh_coarse, cellvalues, ch
 end
 
-function create_nns(dh)
-    ##Ndof = ndofs(dh)
+function create_nns(dh, fieldname = first(dh.field_names))
+    @assert length(dh.field_names) == 1 "Only a single field is supported for now."
+
+    coords_flat = zeros(ndofs(dh))
+    apply_analytical!(coords_flat, dh, fieldname, x -> x)
+    coords = reshape(coords_flat, (length(coords_flat) ÷ 2, 2))
+
     grid = dh.grid
-    Ndof = 2 * (grid.nodes |> length) # nns at p = 1 for AMG
-    B = zeros(Float64, Ndof, 3)
+    B = zeros(Float64, ndofs(dh), 3)
     B[1:2:end, 1] .= 1 # x - translation
     B[2:2:end, 2] .= 1 # y - translation
 
     # in-plane rotation (x,y) → (-y,x)
-    coords = reduce(hcat, grid.nodes .|> (n -> n.x |> collect))' # convert nodes to 2d array
-    y = coords[:, 2]
     x = coords[:, 1]
+    y = coords[:, 2]
     B[1:2:end, 3] .= -y
     B[2:2:end, 3] .= x
+
     return B
 end
 
 using FerriteMultigrid
 
-A, b, dh, cellvalues, ch = linear_elasticity_2d(C);
+A, b, dh, dh_coarse, cellvalues, ch = linear_elasticity_2d(C);
 
-B = create_nns(dh)
+B = create_nns(dh_coarse)
 
 fe_space = FESpace(dh, cellvalues, ch)
 
+reset_timer!()
+
+@timeit "CG" x_cg = IterativeSolvers.cg(A, b; maxiter = 1000, verbose=false)
+
 config_gal = pmultigrid_config(coarse_strategy = Galerkin())
-x_gal, res_gal = solve(A, b,fe_space, config_gal;B = B, log=true, rtol = 1e-10)
+@timeit "Galerkin only" x_gal, res_gal = solve(A, b,fe_space, config_gal;B = B, log=true, rtol = 1e-10)
+
+builder_gal = PMultigridPreconBuilder(fe_space, config_gal)
+@timeit "Build preconditioner" Pl_gal = builder_gal(A)[1]
+@timeit "Galerkin CG" IterativeSolvers.cg(A, b; Pl = Pl_gal, maxiter = 1000, verbose=false)
 
 # Rediscretization Coarsening Strategy
 config_red = pmultigrid_config(coarse_strategy = Rediscretization(LinearElasticityMultigrid(C)))
-x_red, res_red = solve(A, b, fe_space, config_red; B = B, log=true, rtol = 1e-10)
+@timeit "Rediscretization only" x_red, res_red = solve(A, b, fe_space, config_red; B = B, log=true, rtol = 1e-10)
+
+builder_red = PMultigridPreconBuilder(fe_space, config_red)
+@timeit "Build preconditioner" Pl_red = builder_red(A)[1]
+@timeit "Rediscretization CG" IterativeSolvers.cg(A, b; Pl = Pl_red, maxiter = 1000, verbose=false)
+
+print_timer(title = "Analysis with $(getncells(dh.grid)) elements", linechars = :ascii)
 
 using Test
 @testset "Linear Elasticity Example" begin
     println("Final residual with Galerkin coarsening: ", res_gal[end])
-    @test A * x_gal ≈ b
+    @test A * x_gal ≈ b atol=1e-4
     println("Final residual with Rediscretization coarsening: ", res_red[end])
-    @test A * x_red ≈ b
+    @test A * x_red ≈ b atol=1e-4
 end
 
 # This file was generated using Literate.jl, https://github.com/fredrikekre/Literate.jl
