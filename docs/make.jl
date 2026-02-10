@@ -37,6 +37,7 @@ bibtex_plugin = CitationBibliography(
         "Home" => "index.md",
         "Tutorials" => [
             "tutorials/linear_elasticity.md",
+            "tutorials/hyperelasticity.md",
             ],
         "API Reference" => ["api-reference/fe.md",
                              "api-reference/multigrid_problems.md",
@@ -52,7 +53,7 @@ bibtex_plugin = CitationBibliography(
 # Deploy built documentation (only if not liveserver)
 if !liveserver
     @timeit dto "deploydocs" deploydocs(
-        repo = "github.com/Abdelrahman912/FerriteMultigrid.jl.git",
+        repo = "github.com/termi-official/FerriteMultigrid.jl.git",
         devbranch = "main",  
         push_preview = true
     )
