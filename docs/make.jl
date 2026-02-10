@@ -1,3 +1,5 @@
+ENV["DOCUMENTER_DEBUG"] = "true";
+
 using TimerOutputs
 
 dto = TimerOutput()
