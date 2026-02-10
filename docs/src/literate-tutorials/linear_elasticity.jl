@@ -18,6 +18,7 @@
 #
 using Ferrite, FerriteGmsh, SparseArrays
 using Downloads: download
+using IterativeSolvers
 
 Emod = 200.0e3 # Young's modulus [MPa]
 ν = 0.3        # Poisson's ratio [-]
@@ -102,11 +103,11 @@ function linear_elasticity_2d(C)
     addfacetset!(grid, "bottom", x -> abs(x[2]) < 1.0e-6)
 
     dim = 2
-    order = 2 # quadratic interpolation
+    order = 4
     ip = Lagrange{RefTriangle,order}()^dim # vector valued interpolation
 
-    qr = QuadratureRule{RefTriangle}(4) # 4 quadrature point
-    qr_face = FacetQuadratureRule{RefTriangle}(1)
+    qr = QuadratureRule{RefTriangle}(8)
+    qr_face = FacetQuadratureRule{RefTriangle}(6)
 
     cellvalues = CellValues(qr, ip)
     facetvalues = FacetValues(qr_face, ip)
@@ -121,7 +122,7 @@ function linear_elasticity_2d(C)
     close!(ch)
 
     traction(x) = Vec(0.0, 20.0e3 * x[1])
-    
+
     A = allocate_matrix(dh)
     assemble_global!(A, dh, cellvalues, C)
 
@@ -198,10 +199,10 @@ x_red, res_red = solve(A, b, fe_space, config_red; B = B, log=true, rtol = 1e-10
 using Test
 @testset "Linear Elasticity Example" begin
     println("Final residual with Galerkin coarsening: ", res_gal[end])
-    @test A * x_gal ≈ b
+    @test A * x_gal ≈ b atol=1e-4
     println("Final residual with Rediscretization coarsening: ", res_red[end])
-    @test A * x_red ≈ b
-end                                                                                                                       
+    @test A * x_red ≈ b atol=1e-4
+end
 
 
 

@@ -50,7 +50,7 @@ function DiffusionMultigrid(coeff::Real)
 end
 
 
-function assemble(problem::DiffusionMultigrid, fe_space::FESpace)
+function assemble(problem::DiffusionMultigrid, fe_space::FESpace, u, p)
     dh = fe_space.dh
     cv = fe_space.cv
     ch = fe_space.ch
@@ -114,7 +114,7 @@ function LinearElasticityMultigrid(dim::Int, E::Tv, ν::Tv) where {Tv <: Real}
     return LinearElasticityMultigrid(ℂ)
 end
 
-function assemble(problem::LinearElasticityMultigrid, fe_space::FESpace)
+function assemble(problem::LinearElasticityMultigrid, fe_space::FESpace, u, p)
     dh = fe_space.dh
     cv = fe_space.cv
     ch = fe_space.ch

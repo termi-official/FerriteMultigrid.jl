@@ -61,11 +61,12 @@ end
 
     # test element prolongator
     Pe = zeros(getnbasefunctions(cv_fine), getnbasefunctions(cv_coarse))
+    Pebuf = zeros(getnbasefunctions(cv_fine), getnbasefunctions(cv_coarse))
     Me = zeros(getnbasefunctions(cv_fine), getnbasefunctions(cv_fine))
     cell_iter = CellIterator(dh_fine)
     cell = first(cell_iter)
     reinit!(cv_fine, cell)
-    _element_prolongator!(Pe, Me, cv_fine, cv_coarse)
+    element_prolongator!(Pe, Me, cv_fine, cv_coarse, Pebuf)
     Pe_expected = [
         1.0 0;
         0.0 1.0;
