@@ -6,14 +6,18 @@ using TimerOutputs
 import LinearSolve
 using SparseArrays
 import SparseArrays: AbstractSparseMatrixCSC
-#import CommonSolve: solve, solve!, init
 import Base: *
+
+using TimerOutputs
 
 using Ferrite
 import Ferrite: getorder, AbstractDofHandler, reinit!, AbstractCell, AbstractRefShape
 @reexport using AlgebraicMultigrid
 import AlgebraicMultigrid as AMG
 import AlgebraicMultigrid:
+    init,
+    solve,
+    solve!,
     AMGAlg,
     Level,
     CoarseSolver,

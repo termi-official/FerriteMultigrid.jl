@@ -16,6 +16,9 @@ using Ferrite, Tensors, TimerOutputs, IterativeSolvers
 
 using FerriteMultigrid
 
+TimerOutputs.enable_debug_timings(AlgebraicMultigrid)
+TimerOutputs.enable_debug_timings(FerriteMultigrid)
+
 struct NeoHooke
     μ::Float64
     λ::Float64
@@ -264,16 +267,18 @@ function _solve()
 
         ## Compute increment using conjugate gradients
         fill!(ΔΔu, 0.0)
+        @info "Setup"
         @timeit "Setup preconditioner" Pl = builder(K)[1]
-        @timeit "Galerkin CG" _, ch_gal = IterativeSolvers.cg!(ΔΔu, K, g; Pl, maxiter = 1000, log=true, verbose=false)
-        @info "Galerkin CG iterations: $(ch_gal.iters)"
-        @timeit "Galerkin only" solve(K, g, fe_space, config_gal;B = B, log=true, rtol = 1e-10)
+        @info "GCG"
+        @timeit "Galerkin CG" IterativeSolvers.cg!(ΔΔu, K, g; Pl, maxiter = 1000, verbose=true)
+        # @timeit "Galerkin only" solve(K, g, fe_space, config_gal;B = B, log=true, rtol = 1e-10)
         fill!(ΔΔu, 0.0)
-        @timeit "CG" _, ch_cg = IterativeSolvers.cg!(ΔΔu, K, g; maxiter = 1000, log=true, verbose=false)
-        @info "CG iterations: $(ch_cg.iters)"
+        @info "CG"
+        @timeit "CG" IterativeSolvers.cg!(ΔΔu, K, g; maxiter = 1000, verbose=true)
 
         apply_zero!(ΔΔu, ch)
         Δu .-= ΔΔu
+        break
     end
 
     ## Save the solution

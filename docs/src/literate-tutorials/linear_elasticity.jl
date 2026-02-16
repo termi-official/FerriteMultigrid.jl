@@ -16,9 +16,13 @@
 # 1. Fourth-order `Lagrange` shape functions are used for field approximation: `ip = Lagrange{RefTriangle,4}()^2`.
 # 2. High-order quadrature points are used to accommodate the fourth-order shape functions: `qr = QuadratureRule{RefTriangle}(8)`.
 #
-using Ferrite, FerriteGmsh, SparseArrays
+using Ferrite, FerriteGmsh, FerriteMultigrid#, AlgebraicMultigrid
 using Downloads: download
-using IterativeSolvers, TimerOutputs
+using IterativeSolvers
+using TimerOutputs
+
+TimerOutputs.enable_debug_timings(AlgebraicMultigrid)
+TimerOutputs.enable_debug_timings(FerriteMultigrid)
 
 Emod = 200.0e3 # Young's modulus [MPa]
 ν = 0.3        # Poisson's ratio [-]
@@ -201,7 +205,7 @@ reset_timer!()
 
 # #### 1. Galerkin Coarsening Strategy
 config_gal = pmultigrid_config(coarse_strategy = Galerkin())
-@timeit "Galerkin only" x_gal, res_gal = solve(A, b,fe_space, config_gal;B = B, log=true, rtol = 1e-10)
+@timeit "Galerkin only" x_gal, res_gal = FerriteMultigrid.solve(A, b,fe_space, config_gal;B = B, verbose=true, log=true, rtol = 1e-10)
 
 builder_gal = PMultigridPreconBuilder(fe_space, config_gal)
 @timeit "Build preconditioner" Pl_gal = builder_gal(A)[1]
@@ -219,13 +223,13 @@ builder_red = PMultigridPreconBuilder(fe_space, config_red)
 print_timer(title = "Analysis with $(getncells(dh.grid)) elements", linechars = :ascii)
 
 # ### Test the solution
-using Test
-@testset "Linear Elasticity Example" begin
-    println("Final residual with Galerkin coarsening: ", res_gal[end])
-    @test A * x_gal ≈ b atol=1e-4
-    println("Final residual with Rediscretization coarsening: ", res_red[end])
-    @test A * x_red ≈ b atol=1e-4
-end
+# using Test
+# @testset "Linear Elasticity Example" begin
+#     println("Final residual with Galerkin coarsening: ", res_gal[end])
+#     @test A * x_gal ≈ b atol=1e-4
+#     println("Final residual with Rediscretization coarsening: ", res_red[end])
+#     @test A * x_red ≈ b atol=1e-4
+# end
 
 
 

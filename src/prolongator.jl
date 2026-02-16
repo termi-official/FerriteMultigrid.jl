@@ -22,21 +22,25 @@ function element_prolongator!(
     end
 
     # Invert the mass matrix to get the prolongator
-    _element_mass_matrix!(Me, fine_cv)
-    lu_fact = lu!(Me)
-    ldiv!(Pe, lu_fact, Pe_buffer)
+    # _element_mass_matrix!(Me, fine_cv)
+    # lu_fact = lu!(Me)
+    # ldiv!(Pe, lu_fact, Pe_buffer)
 
-    # _element_mass_matrix_lumped!(Me, fine_cv)
-    # for i in 1:size(Me, 1)
-    #     Me[i,i] = inv(Me[i,i])
-    # end
-    # mul!(Pe, Me, Pe_buffer)
+    _element_mass_matrix_lumped!(Me, fine_cv)
+    for i in 1:size(Me, 1)
+        Me[i,i] = inv(Me[i,i])
+    end
+    mul!(Pe, Me, Pe_buffer)
     return drop_small_entries!(Pe)
 end
 
 
 function drop_small_entries!(A::AbstractMatrix, tol::Float64 = 1e-10)
-    A[abs.(A) .< tol] .= 0.0
+    for ij in eachindex(A)
+        if abs(A[ij]) < tol
+            A[ij] = 0.0
+        end
+    end
     return A
 end
 
@@ -78,38 +82,32 @@ function build_prolongator(fine_fespace::FESpace, coarse_fespace::FESpace)
     fine_ndofs = ndofs(fine_fespace)
     coarse_ndofs = ndofs(coarse_fespace)
     P = spzeros(fine_ndofs, coarse_ndofs)
-    row_contrib = zeros(Int, fine_ndofs)  # NEW: track contributions
+    row_contrib = zeros(Int, fine_ndofs)
 
     fine_nbasefuncs = getnbasefunctions(fine_fespace)
     coarse_nbasefuncs = getnbasefunctions(coarse_fespace)
     Pe = zeros(fine_nbasefuncs, coarse_nbasefuncs)
     Pe_buffer = zeros(fine_nbasefuncs, coarse_nbasefuncs)
     Me = zeros(fine_nbasefuncs, fine_nbasefuncs)
-    for cell in CellIterator(fine_fespace.dh)
+    @timeit_debug "assembly" for cell in CellIterator(fine_fespace.dh)
         reinit!(fine_fespace.cv, cell)
         reinit!(coarse_fespace.cv, cell)
         element_prolongator!(Pe, Me, fine_fespace.cv, coarse_fespace.cv, Pe_buffer)
 
         fine_dofs = celldofs(cell)
         coarse_dofs = celldofs(coarse_fespace.dh, cell.cellid)
+        assemble_prolongator!(P, Pe, fine_dofs, coarse_dofs)
 
-        for i = 1:fine_nbasefuncs
-            global_i = fine_dofs[i]
-            row_contrib[global_i] += 1  # NEW: track how often each fine DOF is used
-            for j = 1:coarse_nbasefuncs
-                global_j = coarse_dofs[j]
-                P[global_i, global_j] += Pe[i, j]
-            end
-        end
+        @. row_contrib[fine_dofs] += 1
     end
-    @timeit_debug "row normalization" _normalize_rows!(P, row_contrib)
+    @timeit_debug "row normalization" normalize_rows!(P, row_contrib)
 
     return P
 end
 
 ## Normalize rows of a CSC sparse matrix by contribution count.
 ## Iterates over CSC nonzeros directly — O(nnz) instead of O(nrows × ncols).
-function _normalize_rows!(P::SparseMatrixCSC, row_contrib::Vector{Int})
+function normalize_rows!(P::SparseMatrixCSC, row_contrib::Vector{Int})
     rows = rowvals(P)
     vals = nonzeros(P)
     for j in 1:size(P, 2)
@@ -128,5 +126,15 @@ function build_restriction(coarse_fespace, fine_fespace, P, is_sym)
         return build_prolongator(coarse_fespace, fine_fespace)
     else
         return P'
+    end
+end
+
+function assemble_prolongator!(P, Pe, fine_dofs, coarse_dofs)
+    for i = 1:length(fine_dofs)
+        global_i = fine_dofs[i]
+        for j = 1:length(coarse_dofs)
+            global_j = coarse_dofs[j]
+            P[global_i, global_j] += Pe[i, j]
+        end
     end
 end
