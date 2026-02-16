@@ -11,5 +11,6 @@ function PMultigridPreconBuilder(fe_space::FESpace, pgrid_config::PMultigridConf
 end
 
 function (b::PMultigridPreconBuilder)(A::AbstractSparseMatrixCSC, p = nothing)
-    return (aspreconditioner(pmultigrid(SparseMatrixCSC(A), b.fe_space, b.pgrid_config, b.pcoarse_solver, Val{b.blocksize}; b.kwargs...)), I)
+    ml = @timeit_debug "pmultigrid hierarchy" pmultigrid(SparseMatrixCSC(A), b.fe_space, b.pgrid_config, b.pcoarse_solver, Val{b.blocksize}; b.kwargs...)
+    return (aspreconditioner(ml), I)
 end

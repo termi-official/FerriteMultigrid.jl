@@ -63,11 +63,12 @@ function solve(A::AbstractMatrix, b::Vector, fe_space::FESpace, pgrid_config::PM
 end
 
 function init(A, b, fine_fespace::FESpace, pgrid_config::PMultigridConfiguration, pcoarse_solvertype = SmoothedAggregationCoarseSolver, args...; kwargs...)
-    PMGSolver(pmultigrid(A, fine_fespace, pgrid_config, setup_coarse_solver(pcoarse_solvertype,args...;kwargs...) ;kwargs...), b)
+    ml = @timeit_debug "pmultigrid hierarchy" pmultigrid(A, fine_fespace, pgrid_config, setup_coarse_solver(pcoarse_solvertype,args...;kwargs...) ;kwargs...)
+    PMGSolver(ml, b)
 end
 
 function solve!(solt::PMGSolver, args...; kwargs...)
-    _solve(solt.ml, solt.b, args...; kwargs...)
+    @timeit_debug "AMG _solve" _solve(solt.ml, solt.b, args...; kwargs...)
 end
 
 setup_coarse_solver(solvertype ,args...;kwargs...) = solvertype

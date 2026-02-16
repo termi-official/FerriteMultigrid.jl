@@ -2,6 +2,7 @@ module FerriteMultigrid
 
 using Reexport
 using LinearAlgebra
+using TimerOutputs
 import LinearSolve
 using SparseArrays
 import SparseArrays: AbstractSparseMatrixCSC

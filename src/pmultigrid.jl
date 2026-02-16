@@ -106,14 +106,16 @@ function pmultigrid(
         coarse_b!(w, size(A, 1))
         residual!(w, size(A, 1))
     end
-    return MultiLevel(levels, A, pcoarse_solver(A), presmoother, postsmoother, w)
+    coarse_solver = @timeit_debug "coarse solver setup" pcoarse_solver(A)
+    return MultiLevel(levels, A, coarse_solver, presmoother, postsmoother, w)
 end
 
 function extend_hierarchy!(levels, fine_fespace::FESpace, coarse_fespace::FESpace, A, cs::Galerkin, u, p)
-    P = build_prolongator(fine_fespace, coarse_fespace)
-    R = build_restriction(coarse_fespace, fine_fespace, P, cs.is_sym)
+    P = @timeit_debug "build prolongator" build_prolongator(fine_fespace, coarse_fespace)
+    R = @timeit_debug "build restriction" build_restriction(coarse_fespace, fine_fespace, P, cs.is_sym)
     push!(levels, Level(A, P, R))
-    A = R * A * P # Galerkin projection
+    ## Galerkin projection: A_coarse = R * A * P
+    A = @timeit_debug "R * A * P" R * A * P
     return A
 end
 
