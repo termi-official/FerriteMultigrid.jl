@@ -17,17 +17,14 @@ end
 
 RugeStubenCoarseSolver(args...; kwargs...) = RugeStubenCoarseSolver(args, kwargs)
 
-mutable struct AMGCoarseSolver{TA,TG<:AMGAlg,TK,TKW} <: CoarseSolver
+struct AMGCoarseSolver{TA,TG<:AMGAlg,TK,TKW} <: CoarseSolver
     A::TA
     alg::TG
     args::TK
     kwargs::TKW
-    ml::Any  # cached AMG MultiLevel, built on first call
 end
 
-function AMGCoarseSolver(A, alg::AMGAlg, args...; kwargs...)
-    AMGCoarseSolver(A, alg, args, kwargs, nothing)
-end
+AMGCoarseSolver(A, alg::AMGAlg, args...; kwargs...) = AMGCoarseSolver(A, alg, args, kwargs)
 
 function (sa::SmoothedAggregationCoarseSolver)(A)
     return AMGCoarseSolver(A, SmoothedAggregationAMG(),sa.args...; sa.kwargs...)
@@ -38,12 +35,13 @@ function (rs::RugeStubenCoarseSolver)(A)
 end
 
 function (amg::AMGCoarseSolver)(x::Vector, b::Vector)
-    if isnothing(amg.ml)
-        amg.ml = AMG.init(amg.alg, amg.A, b, amg.args...; amg.kwargs...).ml
+    solve_res = AMG.solve(amg.A, b, amg.alg, amg.args...; amg.kwargs...)
+    if solve_res isa Tuple
+        x_amg, _ = solve_res
+        x .= x_amg
+    else
+        x .= solve_res
     end
-    # Single V-cycle: AMG is a coarse solver inside an outer iteration,
-    # so it doesn't need to converge on its own.
-    AMG._solve!(x, amg.ml, b; maxiter=1, calculate_residual=false)
 end
 
 """

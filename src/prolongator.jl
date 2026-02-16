@@ -102,21 +102,24 @@ function build_prolongator(fine_fespace::FESpace, coarse_fespace::FESpace)
             end
         end
     end
-    # Normalize the rows of P by how many times they were visited
-    # Iterate over CSC nonzeros directly — O(nnz) instead of O(nrows × ncols)
-    @timeit_debug "row normalization" begin
-        rows = rowvals(P)
-        vals = nonzeros(P)
-        for j in 1:size(P, 2)
-            for idx in nzrange(P, j)
-                row = rows[idx]
-                if row_contrib[row] > 1
-                    vals[idx] /= row_contrib[row]
-                end
+    @timeit_debug "row normalization" _normalize_rows!(P, row_contrib)
+
+    return P
+end
+
+## Normalize rows of a CSC sparse matrix by contribution count.
+## Iterates over CSC nonzeros directly — O(nnz) instead of O(nrows × ncols).
+function _normalize_rows!(P::SparseMatrixCSC, row_contrib::Vector{Int})
+    rows = rowvals(P)
+    vals = nonzeros(P)
+    for j in 1:size(P, 2)
+        for idx in nzrange(P, j)
+            row = rows[idx]
+            if row_contrib[row] > 1
+                vals[idx] /= row_contrib[row]
             end
         end
     end
-
     return P
 end
 

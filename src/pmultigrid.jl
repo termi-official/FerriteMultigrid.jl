@@ -115,8 +115,7 @@ function extend_hierarchy!(levels, fine_fespace::FESpace, coarse_fespace::FESpac
     R = @timeit_debug "build restriction" build_restriction(coarse_fespace, fine_fespace, P, cs.is_sym)
     push!(levels, Level(A, P, R))
     ## Galerkin projection: A_coarse = R * A * P
-    RA = @timeit_debug "R * A" R * A
-    A = @timeit_debug "RA * P" RA * P
+    A = @timeit_debug "R * A * P" R * A * P
     return A
 end
 
