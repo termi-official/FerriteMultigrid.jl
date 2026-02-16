@@ -89,10 +89,10 @@ function assemble_global!(K, g, dh, cv, fv, mp, u, ΓN)
     assembler = start_assemble(K, g)
 
     # Loop over all cells in the grid
-    @timeit &quot;assemble&quot; for cell in CellIterator(dh)
+    for cell in CellIterator(dh)
         global_dofs = celldofs(cell)
         ue = u[global_dofs] # element dofs
-        @timeit &quot;element assemble&quot; assemble_element!(ke, ge, cell, cv, fv, mp, ue, ΓN)
+        assemble_element!(ke, ge, cell, cv, fv, mp, ue, ΓN)
         assemble!(assembler, global_dofs, ke, ge)
     end
     return
@@ -233,10 +233,12 @@ function _solve()
         # Compute increment using conjugate gradients
         fill!(ΔΔu, 0.0)
         @timeit &quot;Setup preconditioner&quot; Pl = builder(K)[1]
-        @timeit &quot;CG&quot; IterativeSolvers.cg!(ΔΔu, K, g; Pl, maxiter = 1000, verbose=false)
+        @timeit &quot;Galerkin CG&quot; _, ch_gal = IterativeSolvers.cg!(ΔΔu, K, g; Pl, maxiter = 1000, log=true, verbose=false)
+        @info &quot;Galerkin CG iterations: $(ch_gal.iters)&quot;
         @timeit &quot;Galerkin only&quot; solve(K, g, fe_space, config_gal;B = B, log=true, rtol = 1e-10)
         fill!(ΔΔu, 0.0)
-        @timeit &quot;Galerkin CG&quot; IterativeSolvers.cg!(ΔΔu, K, g; maxiter = 1000, verbose=false)
+        @timeit &quot;CG&quot; _, ch_cg = IterativeSolvers.cg!(ΔΔu, K, g; maxiter = 1000, log=true, verbose=false)
+        @info &quot;CG iterations: $(ch_cg.iters)&quot;
 
         apply_zero!(ΔΔu, ch)
         Δu .-= ΔΔu
@@ -254,18 +256,26 @@ function _solve()
 end
 
 u = _solve();</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr36"><span class="sgr1">[ Info: </span></span>27783
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Galerkin CG iterations: 18
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>CG iterations: 586
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Galerkin CG iterations: 11
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>CG iterations: 303
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Galerkin CG iterations: 12
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>CG iterations: 306
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Galerkin CG iterations: 12
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>CG iterations: 304
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Galerkin CG iterations: 12
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>CG iterations: 305
 <span class="sgr1">---------------------------------------------------------------------------------</span>
 <span class="sgr1">  Analysis with 6000 elements  </span>         Time                    Allocations
                                -----------------------   ------------------------
-       Tot / % measured:            53.8s /  99.1%           19.8GiB /  99.5%
+       Tot / % measured:            44.6s /  93.5%           19.8GiB /  99.5%
 
 Section                ncalls     time    %tot     avg     alloc    %tot      avg
 ---------------------------------------------------------------------------------
-Galerkin only               5    31.0s   58.2%   6.21s   16.7GiB   84.5%  3.34GiB
-Setup preconditioner        5    10.6s   20.0%   2.13s    752MiB    3.7%   150MiB
-CG                          5    7.26s   13.6%   1.45s   2.32GiB   11.7%   474MiB
-Galerkin CG                 5    2.72s    5.1%   544ms   3.18MiB    0.0%   652KiB
-assemble                    6    1.63s    3.0%   271ms   10.4MiB    0.1%  1.74MiB
-  element assemble      36.0k    1.44s    2.7%  40.0μs     0.00B    0.0%    0.00B
-export                      1   14.8ms    0.0%  14.8ms   4.98MiB    0.0%  4.98MiB
-<span class="sgr1">---------------------------------------------------------------------------------</span></code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../linear_elasticity/">« Linear Elasticity</a><a class="docs-footer-nextpage" href="../../api-reference/fe/">Finite Element »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Tuesday 10 February 2026 21:33">Tuesday 10 February 2026</span>. Using Julia version 1.12.4.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+Galerkin only               5    27.9s   66.7%   5.57s   16.7GiB   84.6%  3.33GiB
+Galerkin CG                 5    8.33s   19.9%   1.67s   2.32GiB   11.8%   474MiB
+CG                          5    3.26s    7.8%   651ms   3.31MiB    0.0%   677KiB
+Setup preconditioner        5    2.30s    5.5%   459ms    731MiB    3.6%   146MiB
+export                      1   13.6ms    0.0%  13.6ms   4.98MiB    0.0%  4.98MiB
+<span class="sgr1">---------------------------------------------------------------------------------</span></code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../linear_elasticity/">« Linear Elasticity</a><a class="docs-footer-nextpage" href="../../api-reference/fe/">Finite Element »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Monday 16 February 2026 17:42">Monday 16 February 2026</span>. Using Julia version 1.12.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>

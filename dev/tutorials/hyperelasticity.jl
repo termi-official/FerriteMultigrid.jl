@@ -88,10 +88,10 @@ function assemble_global!(K, g, dh, cv, fv, mp, u, ΓN)
     assembler = start_assemble(K, g)
 
     # Loop over all cells in the grid
-    @timeit "assemble" for cell in CellIterator(dh)
+    for cell in CellIterator(dh)
         global_dofs = celldofs(cell)
         ue = u[global_dofs] # element dofs
-        @timeit "element assemble" assemble_element!(ke, ge, cell, cv, fv, mp, ue, ΓN)
+        assemble_element!(ke, ge, cell, cv, fv, mp, ue, ΓN)
         assemble!(assembler, global_dofs, ke, ge)
     end
     return
@@ -234,10 +234,12 @@ function _solve()
         # Compute increment using conjugate gradients
         fill!(ΔΔu, 0.0)
         @timeit "Setup preconditioner" Pl = builder(K)[1]
-        @timeit "CG" IterativeSolvers.cg!(ΔΔu, K, g; Pl, maxiter = 1000, verbose=false)
+        @timeit "Galerkin CG" _, ch_gal = IterativeSolvers.cg!(ΔΔu, K, g; Pl, maxiter = 1000, log=true, verbose=false)
+        @info "Galerkin CG iterations: $(ch_gal.iters)"
         @timeit "Galerkin only" solve(K, g, fe_space, config_gal;B = B, log=true, rtol = 1e-10)
         fill!(ΔΔu, 0.0)
-        @timeit "Galerkin CG" IterativeSolvers.cg!(ΔΔu, K, g; maxiter = 1000, verbose=false)
+        @timeit "CG" _, ch_cg = IterativeSolvers.cg!(ΔΔu, K, g; maxiter = 1000, log=true, verbose=false)
+        @info "CG iterations: $(ch_cg.iters)"
 
         apply_zero!(ΔΔu, ch)
         Δu .-= ΔΔu
