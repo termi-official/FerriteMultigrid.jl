@@ -1,0 +1,559 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Linear Elasticity · FerriteMultigrid.jl</title><meta name="title" content="Linear Elasticity · FerriteMultigrid.jl"/><meta property="og:title" content="Linear Elasticity · FerriteMultigrid.jl"/><meta property="twitter:title" content="Linear Elasticity · FerriteMultigrid.jl"/><meta name="description" content="Documentation for FerriteMultigrid.jl."/><meta property="og:description" content="Documentation for FerriteMultigrid.jl."/><meta property="twitter:description" content="Documentation for FerriteMultigrid.jl."/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script><link href="../../assets/citations.css" rel="stylesheet" type="text/css"/><link href="../../assets/custom.css" rel="stylesheet" type="text/css"/></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">FerriteMultigrid.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><span class="tocitem">Tutorials</span><ul><li class="is-active"><a class="tocitem" href>Linear Elasticity</a><ul class="internal"><li><a class="tocitem" href="#Implementation"><span>Implementation</span></a></li><li><a class="tocitem" href="#linear-elasticity-plain-program"><span>Plain program</span></a></li></ul></li><li><a class="tocitem" href="../hyperelasticity/">Nonlinear Elasticity</a></li></ul></li><li><span class="tocitem">API Reference</span><ul><li><a class="tocitem" href="../../api-reference/fe/">Finite Element</a></li><li><a class="tocitem" href="../../api-reference/multigrid_problems/">Multigrid Problems</a></li><li><a class="tocitem" href="../../api-reference/multilevel/">Multilevel</a></li><li><a class="tocitem" href="../../api-reference/pmg_config/">Multigrid Configuration</a></li></ul></li><li><a class="tocitem" href="../../references/">References</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Linear Elasticity</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Linear Elasticity</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/termi-official/FerriteMultigrid.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/termi-official/FerriteMultigrid.jl/blob/main/docs/src/literate-tutorials/linear_elasticity.jl" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="tutorial-linear-elasticity"><a class="docs-heading-anchor" href="#tutorial-linear-elasticity">Linear Elasticity</a><a id="tutorial-linear-elasticity-1"></a><a class="docs-heading-anchor-permalink" href="#tutorial-linear-elasticity" title="Permalink"></a></h1><p><img src="../linear_elasticity.svg" alt/></p><p><em>Figure 1</em>: Linear elastically deformed 1mm <span>$\times$</span> 1mm Ferrite logo.</p><div class="admonition is-info" id="Note-feec48883da1e903"><header class="admonition-header">Note<a class="admonition-anchor" href="#Note-feec48883da1e903" title="Permalink"></a></header><div class="admonition-body"><p>The full explanation for the underlying FEM theory in this example can be found in the <a href="https://ferrite-fem.github.io/Ferrite.jl/stable/tutorials/linear_elasticity/">Linear Elasticity</a> tutorial of the Ferrite.jl documentation.</p></div></div><h2 id="Implementation"><a class="docs-heading-anchor" href="#Implementation">Implementation</a><a id="Implementation-1"></a><a class="docs-heading-anchor-permalink" href="#Implementation" title="Permalink"></a></h2><p>The following code is based on the <a href="https://ferrite-fem.github.io/Ferrite.jl/stable/tutorials/linear_elasticity/">Linear Elasticity</a> tutorial from the Ferrite.jl documentation, with some comments removed for brevity. There are two main modifications:</p><ol><li>Fourth-order <code>Lagrange</code> shape functions are used for field approximation: <code>ip = Lagrange{RefTriangle,4}()^2</code>.</li><li>High-order quadrature points are used to accommodate the fourth-order shape functions: <code>qr = QuadratureRule{RefTriangle}(8)</code>.</li></ol><pre><code class="language-julia hljs">using Ferrite, FerriteGmsh, FerriteMultigrid, AlgebraicMultigrid
+using Downloads: download
+using IterativeSolvers
+using TimerOutputs
+
+TimerOutputs.enable_debug_timings(AlgebraicMultigrid)
+TimerOutputs.enable_debug_timings(FerriteMultigrid)
+
+Emod = 200.0e3 # Young&#39;s modulus [MPa]
+ν = 0.3        # Poisson&#39;s ratio [-]
+
+Gmod = Emod / (2(1 + ν))  # Shear modulus
+Kmod = Emod / (3(1 - 2ν)) # Bulk modulus
+
+C = gradient(ϵ -&gt; 2 * Gmod * dev(ϵ) + 3 * Kmod * vol(ϵ), zero(SymmetricTensor{2,2}))
+
+function assemble_external_forces!(f_ext, dh, facetset, facetvalues, prescribed_traction)
+    # Create a temporary array for the facet&#39;s local contributions to the external force vector
+    fe_ext = zeros(getnbasefunctions(facetvalues))
+    for facet in FacetIterator(dh, facetset)
+        # Update the facetvalues to the correct facet number
+        reinit!(facetvalues, facet)
+        # Reset the temporary array for the next facet
+        fill!(fe_ext, 0.0)
+        # Access the cell&#39;s coordinates
+        cell_coordinates = getcoordinates(facet)
+        for qp in 1:getnquadpoints(facetvalues)
+            # Calculate the global coordinate of the quadrature point.
+            x = spatial_coordinate(facetvalues, qp, cell_coordinates)
+            tₚ = prescribed_traction(x)
+            # Get the integration weight for the current quadrature point.
+            dΓ = getdetJdV(facetvalues, qp)
+            for i in 1:getnbasefunctions(facetvalues)
+                Nᵢ = shape_value(facetvalues, qp, i)
+                fe_ext[i] += tₚ ⋅ Nᵢ * dΓ
+            end
+        end
+        # Add the local contributions to the correct indices in the global external force vector
+        assemble!(f_ext, celldofs(facet), fe_ext)
+    end
+    return f_ext
+end
+
+function assemble_cell!(ke, cellvalues, C)
+    for q_point in 1:getnquadpoints(cellvalues)
+        # Get the integration weight for the quadrature point
+        dΩ = getdetJdV(cellvalues, q_point)
+        for i in 1:getnbasefunctions(cellvalues)
+            # Gradient of the test function
+            ∇Nᵢ = shape_gradient(cellvalues, q_point, i)
+            for j in 1:getnbasefunctions(cellvalues)
+                # Symmetric gradient of the trial function
+                ∇ˢʸᵐNⱼ = shape_symmetric_gradient(cellvalues, q_point, j)
+                ke[i, j] += (∇Nᵢ ⊡ C ⊡ ∇ˢʸᵐNⱼ) * dΩ
+            end
+        end
+    end
+    return ke
+end
+
+function assemble_global!(K, dh, cellvalues, C)
+    # Allocate the element stiffness matrix
+    n_basefuncs = getnbasefunctions(cellvalues)
+    ke = zeros(n_basefuncs, n_basefuncs)
+    # Create an assembler
+    assembler = start_assemble(K)
+    # Loop over all cells
+    for cell in CellIterator(dh)
+        # Update the shape function gradients based on the cell coordinates
+        reinit!(cellvalues, cell)
+        # Reset the element stiffness matrix
+        fill!(ke, 0.0)
+        # Compute element contribution
+        assemble_cell!(ke, cellvalues, C)
+        # Assemble ke into K
+        assemble!(assembler, celldofs(cell), ke)
+    end
+    return K
+end
+
+function linear_elasticity_2d(C)
+    logo_mesh = &quot;logo.geo&quot;
+    asset_url = &quot;https://raw.githubusercontent.com/Ferrite-FEM/Ferrite.jl/gh-pages/assets/&quot;
+    isfile(logo_mesh) || download(string(asset_url, logo_mesh), logo_mesh)
+
+    grid = togrid(logo_mesh)
+    addfacetset!(grid, &quot;top&quot;, x -&gt; x[2] ≈ 1.0) # facets for which x[2] ≈ 1.0 for all nodes
+    addfacetset!(grid, &quot;left&quot;, x -&gt; abs(x[1]) &lt; 1.0e-6)
+    addfacetset!(grid, &quot;bottom&quot;, x -&gt; abs(x[2]) &lt; 1.0e-6)
+
+    dim = 2
+    order = 4
+    ip = Lagrange{RefTriangle,order}()^dim # vector valued interpolation
+    ip_coarse = Lagrange{RefTriangle,1}()^dim
+
+    qr = QuadratureRule{RefTriangle}(8)
+    qr_face = FacetQuadratureRule{RefTriangle}(6)
+
+    cellvalues = CellValues(qr, ip)
+    facetvalues = FacetValues(qr_face, ip)
+
+    dh = DofHandler(grid)
+    add!(dh, :u, ip)
+    close!(dh)
+
+    dh_coarse = DofHandler(grid)
+    add!(dh_coarse, :u, ip_coarse)
+    close!(dh_coarse)
+
+    ch = ConstraintHandler(dh)
+    add!(ch, Dirichlet(:u, getfacetset(grid, &quot;bottom&quot;), (x, t) -&gt; 0.0, 2))
+    add!(ch, Dirichlet(:u, getfacetset(grid, &quot;left&quot;), (x, t) -&gt; 0.0, 1))
+    close!(ch)
+
+    traction(x) = Vec(0.0, 20.0e3 * x[1])
+
+    A = allocate_matrix(dh)
+    assemble_global!(A, dh, cellvalues, C)
+
+    b = zeros(ndofs(dh))
+    assemble_external_forces!(b, dh, getfacetset(grid, &quot;top&quot;), facetvalues, traction)
+    apply!(A, b, ch)
+
+    return A, b, dh, dh_coarse, cellvalues, ch
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">linear_elasticity_2d (generic function with 1 method)</code></pre><h3 id="Near-Null-Space-(NNS)"><a class="docs-heading-anchor" href="#Near-Null-Space-(NNS)">Near Null Space (NNS)</a><a id="Near-Null-Space-(NNS)-1"></a><a class="docs-heading-anchor-permalink" href="#Near-Null-Space-(NNS)" title="Permalink"></a></h3><p>In multigrid methods for problems with vector-valued unknowns, such as linear elasticity, the near null space represents the low energy mode or the smooth error that needs to be captured in the coarser grid when using SA-AMG (Smoothed Aggregation Algebraic Multigrid), more on the topic can be found  in <a href="../../references/#schroder2010">Schroder [1]</a>.</p><p>For 2D linear elasticity problems, the rigid body modes are:</p><ol><li>Translation in the x-direction,</li><li>Translation in the y-direction,</li><li>Rotation about the z-axis (i.e., <span>$x_3$</span>): each point (x, y) is mapped to (-y, x).</li></ol><p>The function <code>create_nns</code> constructs the NNS matrix <code>B ∈ ℝ^{n × 3}</code>, where <code>n</code> is the number of degrees of freedom (DOFs) for the case of <code>p</code> = 1 (i.e., linear interpolation), because <code>B</code> is only relevant for AMG.</p><pre><code class="language-julia hljs">function create_nns(dh, fieldname = first(dh.field_names))
+    @assert length(dh.field_names) == 1 &quot;Only a single field is supported for now.&quot;
+
+    coords_flat = zeros(ndofs(dh))
+    apply_analytical!(coords_flat, dh, fieldname, x -&gt; x)
+    coords = reshape(coords_flat, (length(coords_flat) ÷ 2, 2))
+
+    grid = dh.grid
+    B = zeros(Float64, ndofs(dh), 3)
+    B[1:2:end, 1] .= 1 # x - translation
+    B[2:2:end, 2] .= 1 # y - translation
+
+    # in-plane rotation (x,y) → (-y,x)
+    x = coords[:, 1]
+    y = coords[:, 2]
+    B[1:2:end, 3] .= -y
+    B[2:2:end, 3] .= x
+
+    return B
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">create_nns (generic function with 2 methods)</code></pre><h3 id="Setup-the-linear-elasticity-problem"><a class="docs-heading-anchor" href="#Setup-the-linear-elasticity-problem">Setup the linear elasticity problem</a><a id="Setup-the-linear-elasticity-problem-1"></a><a class="docs-heading-anchor-permalink" href="#Setup-the-linear-elasticity-problem" title="Permalink"></a></h3><p>Load <code>FerriteMultigrid</code> to access the p-multigrid solver.</p><pre><code class="language-julia hljs">using FerriteMultigrid</code></pre><p>Construct the linear elasticity problem with 2nd order polynomial shape functions.</p><pre><code class="language-julia hljs">A, b, dh, dh_coarse, cellvalues, ch = linear_elasticity_2d(C);</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Info    : Reading &#39;logo.geo&#39;...
+Info    : Done reading &#39;logo.geo&#39;
+Info    : Meshing 1D...
+Info    : [  0%] Meshing curve 1 (Line)
+Info    : [ 10%] Meshing curve 2 (Line)
+Info    : [ 20%] Meshing curve 3 (Line)
+Info    : [ 20%] Meshing curve 4 (Line)
+Info    : [ 30%] Meshing curve 5 (Line)
+Info    : [ 30%] Meshing curve 6 (Line)
+Info    : [ 40%] Meshing curve 7 (Line)
+Info    : [ 40%] Meshing curve 8 (Line)
+Info    : [ 50%] Meshing curve 9 (Line)
+Info    : [ 60%] Meshing curve 10 (Line)
+Info    : [ 60%] Meshing curve 11 (Line)
+Info    : [ 70%] Meshing curve 12 (Line)
+Info    : [ 70%] Meshing curve 13 (Line)
+Info    : [ 80%] Meshing curve 14 (Line)
+Info    : [ 80%] Meshing curve 15 (Line)
+Info    : [ 90%] Meshing curve 16 (Line)
+Info    : [ 90%] Meshing curve 17 (Line)
+Info    : [100%] Meshing curve 18 (Line)
+Info    : Done meshing 1D (Wall 0.00092916s, CPU 0.00093s)
+Info    : Meshing 2D...
+Info    : [  0%] Meshing surface 1 (Plane, Frontal-Delaunay)
+Info    : [ 20%] Meshing surface 2 (Plane, Frontal-Delaunay)
+Info    : [ 40%] Meshing surface 3 (Plane, Frontal-Delaunay)
+Info    : [ 60%] Meshing surface 4 (Plane, Frontal-Delaunay)
+Info    : [ 70%] Meshing surface 5 (Plane, Frontal-Delaunay)
+Info    : [ 90%] Meshing surface 6 (Plane, Frontal-Delaunay)
+Info    : Done meshing 2D (Wall 0.00185873s, CPU 0.001858s)
+Info    : 104 nodes 245 elements</code></pre><p>Construct the near null space (NNS) matrix</p><pre><code class="language-julia hljs">B = create_nns(dh_coarse)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">208×3 Matrix{Float64}:
+ 1.0  0.0  -1.0
+ 0.0  1.0   0.801535
+ 1.0  0.0  -0.253172
+ 0.0  1.0   0.454964
+ 1.0  0.0  -0.612999
+ 0.0  1.0   0.900767
+ 1.0  0.0  -0.0858959
+ 0.0  1.0   0.417361
+ 1.0  0.0  -0.66085
+ 0.0  1.0   0.820318
+ ⋮         
+ 0.0  1.0   0.11219
+ 1.0  0.0  -0.464069
+ 0.0  1.0   0.592985
+ 1.0  0.0  -0.450733
+ 0.0  1.0   0.301241
+ 1.0  0.0  -0.677392
+ 0.0  1.0   1.0
+ 1.0  0.0  -0.477795
+ 0.0  1.0   0.126586</code></pre><div class="admonition is-danger" id="Danger-2c3c59d1e0ef57dd"><header class="admonition-header">Danger<a class="admonition-anchor" href="#Danger-2c3c59d1e0ef57dd" title="Permalink"></a></header><div class="admonition-body"><p>Since NNS matrix is only relevant for AMG, and it is not used in the p-multigrid solver, therefore, <code>B</code> has to provided using linear field approximation (i.e., <code>p = 1</code>) when using AMG as the coarse solver, otherwise (e.g., using <code>Pinv</code> as the coarse solver), then we don&#39;t have to provide it.</p></div></div><p>Construct the finite element space <span>$\mathcal{V}_{h,p = 4}$</span></p><pre><code class="language-julia hljs">fe_space = FESpace(dh, cellvalues, ch)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">FESpace{Ferrite.DofHandler{2, Ferrite.Grid{2, Ferrite.Triangle, Float64}}, Ferrite.CellValues{Ferrite.FunctionValues{1, Ferrite.VectorizedInterpolation{2, Ferrite.RefTriangle, 4, Ferrite.Lagrange{Ferrite.RefTriangle, 4}}, Matrix{Tensors.Vec{2, Float64}}, Matrix{Tensors.Tensor{2, 2, Float64, 4}}, Matrix{Tensors.Tensor{2, 2, Float64, 4}}, Nothing, Nothing}, Ferrite.GeometryMapping{1, Ferrite.Lagrange{Ferrite.RefTriangle, 1}, Matrix{Float64}, Matrix{Tensors.Vec{2, Float64}}, Nothing}, Ferrite.QuadratureRule{Ferrite.RefTriangle, Vector{Float64}, Vector{Tensors.Vec{2, Float64}}}, Vector{Float64}}, Ferrite.ConstraintHandler{Ferrite.DofHandler{2, Ferrite.Grid{2, Ferrite.Triangle, Float64}}, Float64}}(Ferrite.DofHandler{2, Ferrite.Grid{2, Ferrite.Triangle, Float64}}(Ferrite.SubDofHandler{Ferrite.DofHandler{2, Ferrite.Grid{2, Ferrite.Triangle, Float64}}}[Ferrite.SubDofHandler{Ferrite.DofHandler{2, Ferrite.Grid{2, Ferrite.Triangle, Float64}}}(Ferrite.DofHandler{2, Ferrite.Grid{2, Ferrite.Triangle, Float64}}(<span class="sgr33">#= circular reference @-3 =#</span>), OrderedCollections.OrderedSet{Int64}([1, 2, 3, 4, 5, 6, 7, 8, 9, 10  …  165, 166, 167, 168, 169, 170, 171, 172, 173, 174]), [:u], Ferrite.Interpolation[Ferrite.VectorizedInterpolation{2, Ferrite.RefTriangle, 4, Ferrite.Lagrange{Ferrite.RefTriangle, 4}}(Ferrite.Lagrange{Ferrite.RefTriangle, 4}())], Int64[], 30)], [:u], [1, 2, 3, 4, 5, 6, 7, 8, 9, 10  …  2519, 2520, 2517, 2518, 2909, 2910, 2911, 2912, 2913, 2914], [1, 31, 61, 91, 121, 151, 181, 211, 241, 271  …  4921, 4951, 4981, 5011, 5041, 5071, 5101, 5131, 5161, 5191], [1, 1, 1, 1, 1, 1, 1, 1, 1, 1  …  1, 1, 1, 1, 1, 1, 1, 1, 1, 1], true, Ferrite.Grid{2, Ferrite.Triangle, Float64}(Ferrite.Triangle[Ferrite.Triangle((3, 20, 63)), Ferrite.Triangle((55, 22, 56)), Ferrite.Triangle((20, 57, 63)), Ferrite.Triangle((20, 14, 57)), Ferrite.Triangle((55, 56, 61)), Ferrite.Triangle((58, 55, 61)), Ferrite.Triangle((55, 58, 60)), Ferrite.Triangle((5, 22, 55)), Ferrite.Triangle((2, 14, 20)), Ferrite.Triangle((57, 56, 63))  …  Ferrite.Triangle((97, 22, 100)), Ferrite.Triangle((21, 97, 102)), Ferrite.Triangle((7, 94, 104)), Ferrite.Triangle((94, 52, 101)), Ferrite.Triangle((31, 7, 104)), Ferrite.Triangle((95, 99, 101)), Ferrite.Triangle((99, 94, 101)), Ferrite.Triangle((99, 96, 103)), Ferrite.Triangle((94, 99, 103)), Ferrite.Triangle((100, 31, 104))], Ferrite.Node{2, Float64}[Ferrite.Node{2, Float64}([1.0, 1.0]), Ferrite.Node{2, Float64}([1.0, 0.379757979263]), Ferrite.Node{2, Float64}([0.801534880751, 0.454963545532]), Ferrite.Node{2, Float64}([0.656107331955, 1.0]), Ferrite.Node{2, Float64}([0.600672553037, 0.775245709538]), Ferrite.Node{2, Float64}([0.0, 1.0]), Ferrite.Node{2, Float64}([0.392825178821, 0.672136259831]), Ferrite.Node{2, Float64}([1.0, 0.0]), Ferrite.Node{2, Float64}([0.547800422194, -0.0]), Ferrite.Node{2, Float64}([0.488710023938, 0.224380304618])  …  Ferrite.Node{2, Float64}([0.3718154833954542, 0.3875412105674909]), Ferrite.Node{2, Float64}([0.5769806418976113, 0.4322841106613626]), Ferrite.Node{2, Float64}([0.6165746595005668, 0.5544955814857395]), Ferrite.Node{2, Float64}([0.4773632501523721, 0.33970530481730954]), Ferrite.Node{2, Float64}([0.4640687092382758, 0.45073264476884767]), Ferrite.Node{2, Float64}([0.5673862832010109, 0.6502733177441277]), Ferrite.Node{2, Float64}([0.36593227030528475, 0.4872171539051689]), Ferrite.Node{2, Float64}([0.6773917381820608, 0.4777949032272307]), Ferrite.Node{2, Float64}([0.5225603855864607, 0.5344788107726227]), Ferrite.Node{2, Float64}([0.4733875373049082, 0.6402608858085922])], Dict{String, OrderedCollections.OrderedSet{Int64}}(&quot;4&quot; =&gt; OrderedCollections.OrderedSet{Int64}([114, 105, 110, 111, 92, 99, 98, 89, 106, 96  …  102, 93, 113, 97, 88, 104, 91, 87, 100, 101]), &quot;1&quot; =&gt; OrderedCollections.OrderedSet{Int64}([5, 16, 20, 12, 24, 28, 8, 17, 30, 1  …  33, 4, 13, 15, 2, 10, 18, 21, 26, 27]), &quot;5&quot; =&gt; OrderedCollections.OrderedSet{Int64}([140, 123, 122, 133, 137, 136, 117, 135, 121, 115  …  139, 128, 124, 129, 131, 120, 127, 116, 132, 134]), &quot;2&quot; =&gt; OrderedCollections.OrderedSet{Int64}([35, 52, 37, 53, 47, 41, 43, 45, 36, 44  …  39, 51, 46, 40, 48, 34, 50, 54, 38, 42]), &quot;6&quot; =&gt; OrderedCollections.OrderedSet{Int64}([158, 169, 173, 141, 148, 160, 154, 171, 145, 146  …  168, 174, 163, 147, 165, 144, 142, 167, 157, 150]), &quot;3&quot; =&gt; OrderedCollections.OrderedSet{Int64}([78, 56, 55, 79, 81, 58, 60, 72, 75, 83  …  71, 66, 76, 57, 59, 70, 65, 63, 86, 62])), Dict{String, OrderedCollections.OrderedSet{Int64}}(), Dict{String, OrderedCollections.OrderedSet{Ferrite.FacetIndex}}(&quot;left&quot; =&gt; OrderedCollections.OrderedSet{Ferrite.FacetIndex}([Ferrite.FacetIndex((96, 1)), Ferrite.FacetIndex((101, 1)), Ferrite.FacetIndex((108, 1)), Ferrite.FacetIndex((115, 2)), Ferrite.FacetIndex((118, 2)), Ferrite.FacetIndex((122, 1)), Ferrite.FacetIndex((125, 1)), Ferrite.FacetIndex((127, 1))]), &quot;bottom&quot; =&gt; OrderedCollections.OrderedSet{Ferrite.FacetIndex}([Ferrite.FacetIndex((69, 1)), Ferrite.FacetIndex((73, 1)), Ferrite.FacetIndex((78, 1)), Ferrite.FacetIndex((79, 1)), Ferrite.FacetIndex((90, 3)), Ferrite.FacetIndex((104, 1)), Ferrite.FacetIndex((106, 1)), Ferrite.FacetIndex((107, 1))]), &quot;top&quot; =&gt; OrderedCollections.OrderedSet{Ferrite.FacetIndex}([Ferrite.FacetIndex((21, 1)), Ferrite.FacetIndex((23, 1)), Ferrite.FacetIndex((28, 1)), Ferrite.FacetIndex((35, 1)), Ferrite.FacetIndex((36, 2)), Ferrite.FacetIndex((42, 3)), Ferrite.FacetIndex((43, 3)), Ferrite.FacetIndex((47, 3))])), Dict{String, OrderedCollections.OrderedSet{Ferrite.VertexIndex}}()), 2914), Ferrite.CellValues{Ferrite.FunctionValues{1, Ferrite.VectorizedInterpolation{2, Ferrite.RefTriangle, 4, Ferrite.Lagrange{Ferrite.RefTriangle, 4}}, Matrix{Tensors.Vec{2, Float64}}, Matrix{Tensors.Tensor{2, 2, Float64, 4}}, Matrix{Tensors.Tensor{2, 2, Float64, 4}}, Nothing, Nothing}, Ferrite.GeometryMapping{1, Ferrite.Lagrange{Ferrite.RefTriangle, 1}, Matrix{Float64}, Matrix{Tensors.Vec{2, Float64}}, Nothing}, Ferrite.QuadratureRule{Ferrite.RefTriangle, Vector{Float64}, Vector{Tensors.Vec{2, Float64}}}, Vector{Float64}}(Ferrite.FunctionValues{1, Ferrite.VectorizedInterpolation{2, Ferrite.RefTriangle, 4, Ferrite.Lagrange{Ferrite.RefTriangle, 4}}, Matrix{Tensors.Vec{2, Float64}}, Matrix{Tensors.Tensor{2, 2, Float64, 4}}, Matrix{Tensors.Tensor{2, 2, Float64, 4}}, Nothing, Nothing}(Ferrite.VectorizedInterpolation{2, Ferrite.RefTriangle, 4, Ferrite.Lagrange{Ferrite.RefTriangle, 4}}(Ferrite.Lagrange{Ferrite.RefTriangle, 4}()), Tensors.Vec{2, Float64}[[0.02057613168724234, 0.0] [0.012133933309930203, 0.0] … [0.004244602629577666, 0.0] [-0.007887393245413425, 0.0]; [0.0, 0.02057613168724234] [0.0, 0.012133933309930203] … [0.0, 0.004244602629577666] [0.0, -0.007887393245413425]; … ; [0.39506172839504583, 0.0] [0.46009358509516385, 0.0] … [-0.04976139182375528, 0.0] [0.0985510461872007, 0.0]; [0.0, 0.39506172839504583] [0.0, 0.46009358509516385] … [0.0, -0.04976139182375528] [0.0, 0.0985510461872007]], Tensors.Vec{2, Float64}[[0.02057613168724234, 0.0] [0.012133933309930203, 0.0] … [0.004244602629577666, 0.0] [-0.007887393245413425, 0.0]; [0.0, 0.02057613168724234] [0.0, 0.012133933309930203] … [0.0, 0.004244602629577666] [0.0, -0.007887393245413425]; … ; [0.39506172839504583, 0.0] [0.46009358509516385, 0.0] … [-0.04976139182375528, 0.0] [0.0985510461872007, 0.0]; [0.0, 0.39506172839504583] [0.0, 0.46009358509516385] … [0.0, -0.04976139182375528] [0.0, 0.0985510461872007]], Tensors.Tensor{2, 2, Float64, 4}[[1.4891412422819572 -0.4169756286720052; 0.0 0.0] [-2.800822118983641 0.7842604386350973; 0.0 0.0] … [3.4343339184972983 -0.9616505836213068; 0.0 0.0] [-9.6522014634064 2.7027206412638463; 0.0 0.0]; [0.0 0.0; 1.4891412422819572 -0.4169756286720052] [0.0 0.0; -2.800822118983641 0.7842604386350973] … [0.0 0.0; 3.4343339184972983 -0.9616505836213068] [0.0 0.0; -9.6522014634064 2.7027206412638463]; … ; [-6.2386590191166515 58.569798790751925; 0.0 0.0] [-47.75823294142756 -16.006924476821816; 0.0 0.0] … [6.114845128584763 -69.47423908206534; 0.0 0.0] [124.66677855368695 -35.30736927016434; 0.0 0.0]; [0.0 0.0; -6.2386590191166515 58.569798790751925] [0.0 0.0; -47.75823294142756 -16.006924476821816] … [0.0 0.0; 6.114845128584763 -69.47423908206534] [0.0 0.0; 124.66677855368695 -35.30736927016434]], Tensors.Tensor{2, 2, Float64, 4}[[0.1358024691358129 0.0; 0.0 0.0] [-0.25542141240096017 0.0; 0.0 0.0] … [0.31319462031291806 0.0; 0.0 0.0] [-0.8802340262353081 0.0; 0.0 0.0]; [0.0 0.0; 0.1358024691358129 0.0] [0.0 0.0; -0.25542141240096017 0.0] … [0.0 0.0; 0.31319462031291806 0.0] [0.0 0.0; -0.8802340262353081 0.0]; … ; [3.57245097701588e-14 4.740740740740776; 0.0 0.0] [-4.649482244529567 -2.4511550660646066; 0.0 0.0] … [-0.12081831664643666 -5.653391729417777; 0.0 0.0] [11.365008207313393 -0.03331572693235846; 0.0 0.0]; [0.0 0.0; 3.57245097701588e-14 4.740740740740776] [0.0 0.0; -4.649482244529567 -2.4511550660646066] … [0.0 0.0; -0.12081831664643666 -5.653391729417777] [0.0 0.0; 11.365008207313393 -0.03331572693235846]], nothing, nothing), Ferrite.GeometryMapping{1, Ferrite.Lagrange{Ferrite.RefTriangle, 1}, Matrix{Float64}, Matrix{Tensors.Vec{2, Float64}}, Nothing}(Ferrite.Lagrange{Ferrite.RefTriangle, 1}(), [0.33333333333333 0.45929258829272 … 0.26311282963464 0.00839477740996; 0.33333333333333 0.45929258829272 … 0.00839477740996 0.7284923929554; 0.3333333333333401 0.08141482341455997 … 0.7284923929554 0.26311282963464], Tensors.Vec{2, Float64}[[1.0, 0.0] [1.0, 0.0] … [1.0, 0.0] [1.0, 0.0]; [0.0, 1.0] [0.0, 1.0] … [0.0, 1.0] [0.0, 1.0]; [-1.0, -1.0] [-1.0, -1.0] … [-1.0, -1.0] [-1.0, -1.0]], nothing), Ferrite.QuadratureRule{Ferrite.RefTriangle, Vector{Float64}, Vector{Tensors.Vec{2, Float64}}}([0.072157803838895, 0.04754581713364, 0.04754581713364, 0.04754581713364, 0.05160868526736, 0.05160868526736, 0.05160868526736, 0.0162292488116, 0.0162292488116, 0.0162292488116, 0.013615157087215, 0.013615157087215, 0.013615157087215, 0.013615157087215, 0.013615157087215, 0.013615157087215], Tensors.Vec{2, Float64}[[0.33333333333333, 0.33333333333333], [0.45929258829272, 0.45929258829272], [0.45929258829272, 0.08141482341455], [0.08141482341455, 0.45929258829272], [0.17056930775176, 0.17056930775176], [0.17056930775176, 0.65886138449648], [0.65886138449648, 0.17056930775176], [0.05054722831703, 0.05054722831703], [0.05054722831703, 0.89890554336594], [0.89890554336594, 0.05054722831703], [0.26311282963464, 0.7284923929554], [0.7284923929554, 0.00839477740996], [0.00839477740996, 0.26311282963464], [0.7284923929554, 0.26311282963464], [0.26311282963464, 0.00839477740996], [0.00839477740996, 0.7284923929554]]), [0.0005490069465463841, 0.000361748591238613, 0.000361748591238613, 0.000361748591238613, 0.0003926606022706325, 0.0003926606022706325, 0.0003926606022706325, 0.0001234789566862529, 0.0001234789566862529, 0.0001234789566862529, 0.00010358984644114322, 0.00010358984644114322, 0.00010358984644114322, 0.00010358984644114322, 0.00010358984644114322, 0.00010358984644114322]), Ferrite.ConstraintHandler{Ferrite.DofHandler{2, Ferrite.Grid{2, Ferrite.Triangle, Float64}}, Float64}(Ferrite.Dirichlet[Ferrite.Dirichlet(Main.var&quot;#linear_elasticity_2d##6#linear_elasticity_2d##7&quot;(), OrderedCollections.OrderedSet{Ferrite.FacetIndex}(Ferrite.FacetIndex[Ferrite.FacetIndex((69, 1)), Ferrite.FacetIndex((73, 1)), Ferrite.FacetIndex((78, 1)), Ferrite.FacetIndex((79, 1)), Ferrite.FacetIndex((90, 3)), Ferrite.FacetIndex((104, 1)), Ferrite.FacetIndex((106, 1)), Ferrite.FacetIndex((107, 1))]), :u, [2], [2, 4, 8, 10, 12, 4, 6, 14, 16, 18, 6, 2, 20, 22, 24], [1, 6, 11, 16]), Ferrite.Dirichlet(Main.var&quot;#linear_elasticity_2d##8#linear_elasticity_2d##9&quot;(), OrderedCollections.OrderedSet{Ferrite.FacetIndex}(Ferrite.FacetIndex[Ferrite.FacetIndex((96, 1)), Ferrite.FacetIndex((101, 1)), Ferrite.FacetIndex((108, 1)), Ferrite.FacetIndex((115, 2)), Ferrite.FacetIndex((118, 2)), Ferrite.FacetIndex((122, 1)), Ferrite.FacetIndex((125, 1)), Ferrite.FacetIndex((127, 1))]), :u, [1], [1, 3, 7, 9, 11, 3, 5, 13, 15, 17, 5, 1, 19, 21, 23], [1, 6, 11, 16])], Ferrite.ProjectedDirichlet[], [621, 1250, 1252, 1254, 1256, 1258, 1314, 1318, 1320, 1322  …  2145, 2147, 2149, 2151, 2205, 2207, 2209, 2243, 2245, 2247], [1, 2, 3, 4, 5, 6, 7, 8, 9, 10  …  2905, 2906, 2907, 2908, 2909, 2910, 2911, 2912, 2913, 2914], [0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0  …  0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0], Union{Nothing, Float64}[nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing  …  nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing], Union{Nothing, Vector{Pair{Int64, Float64}}}[nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing  …  nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing, nothing], Dict(1900 =&gt; 41, 1252 =&gt; 3, 2207 =&gt; 62, 2013 =&gt; 50, 1845 =&gt; 32, 2015 =&gt; 51, 2061 =&gt; 55, 1793 =&gt; 28, 1941 =&gt; 47, 1852 =&gt; 35…), Ferrite.BCValues{Float64}[Ferrite.BCValues{Float64}([1.0 0.0 … 0.5 0.25; 0.0 1.0 … 0.5 0.75; 0.0 0.0 … 0.0 0.0;;; 0.0 0.0 … 0.0 0.0; 1.0 0.0 … 0.5 0.25; 0.0 1.0 … 0.5 0.75;;; 0.0 1.0 … 0.5 0.75; 0.0 0.0 … 0.0 0.0; 1.0 0.0 … 0.5 0.25], [5, 5, 5], 1), Ferrite.BCValues{Float64}([1.0 0.0 … 0.5 0.25; 0.0 1.0 … 0.5 0.75; 0.0 0.0 … 0.0 0.0;;; 0.0 0.0 … 0.0 0.0; 1.0 0.0 … 0.5 0.25; 0.0 1.0 … 0.5 0.75;;; 0.0 1.0 … 0.5 0.75; 0.0 0.0 … 0.0 0.0; 1.0 0.0 … 0.5 0.25], [5, 5, 5], 1)], Ferrite.DofHandler{2, Ferrite.Grid{2, Ferrite.Triangle, Float64}}(Ferrite.SubDofHandler{Ferrite.DofHandler{2, Ferrite.Grid{2, Ferrite.Triangle, Float64}}}[Ferrite.SubDofHandler{Ferrite.DofHandler{2, Ferrite.Grid{2, Ferrite.Triangle, Float64}}}(Ferrite.DofHandler{2, Ferrite.Grid{2, Ferrite.Triangle, Float64}}(<span class="sgr33">#= circular reference @-3 =#</span>), OrderedCollections.OrderedSet{Int64}([1, 2, 3, 4, 5, 6, 7, 8, 9, 10  …  165, 166, 167, 168, 169, 170, 171, 172, 173, 174]), [:u], Ferrite.Interpolation[Ferrite.VectorizedInterpolation{2, Ferrite.RefTriangle, 4, Ferrite.Lagrange{Ferrite.RefTriangle, 4}}(Ferrite.Lagrange{Ferrite.RefTriangle, 4}())], Int64[], 30)], [:u], [1, 2, 3, 4, 5, 6, 7, 8, 9, 10  …  2519, 2520, 2517, 2518, 2909, 2910, 2911, 2912, 2913, 2914], [1, 31, 61, 91, 121, 151, 181, 211, 241, 271  …  4921, 4951, 4981, 5011, 5041, 5071, 5101, 5131, 5161, 5191], [1, 1, 1, 1, 1, 1, 1, 1, 1, 1  …  1, 1, 1, 1, 1, 1, 1, 1, 1, 1], true, Ferrite.Grid{2, Ferrite.Triangle, Float64}(Ferrite.Triangle[Ferrite.Triangle((3, 20, 63)), Ferrite.Triangle((55, 22, 56)), Ferrite.Triangle((20, 57, 63)), Ferrite.Triangle((20, 14, 57)), Ferrite.Triangle((55, 56, 61)), Ferrite.Triangle((58, 55, 61)), Ferrite.Triangle((55, 58, 60)), Ferrite.Triangle((5, 22, 55)), Ferrite.Triangle((2, 14, 20)), Ferrite.Triangle((57, 56, 63))  …  Ferrite.Triangle((97, 22, 100)), Ferrite.Triangle((21, 97, 102)), Ferrite.Triangle((7, 94, 104)), Ferrite.Triangle((94, 52, 101)), Ferrite.Triangle((31, 7, 104)), Ferrite.Triangle((95, 99, 101)), Ferrite.Triangle((99, 94, 101)), Ferrite.Triangle((99, 96, 103)), Ferrite.Triangle((94, 99, 103)), Ferrite.Triangle((100, 31, 104))], Ferrite.Node{2, Float64}[Ferrite.Node{2, Float64}([1.0, 1.0]), Ferrite.Node{2, Float64}([1.0, 0.379757979263]), Ferrite.Node{2, Float64}([0.801534880751, 0.454963545532]), Ferrite.Node{2, Float64}([0.656107331955, 1.0]), Ferrite.Node{2, Float64}([0.600672553037, 0.775245709538]), Ferrite.Node{2, Float64}([0.0, 1.0]), Ferrite.Node{2, Float64}([0.392825178821, 0.672136259831]), Ferrite.Node{2, Float64}([1.0, 0.0]), Ferrite.Node{2, Float64}([0.547800422194, -0.0]), Ferrite.Node{2, Float64}([0.488710023938, 0.224380304618])  …  Ferrite.Node{2, Float64}([0.3718154833954542, 0.3875412105674909]), Ferrite.Node{2, Float64}([0.5769806418976113, 0.4322841106613626]), Ferrite.Node{2, Float64}([0.6165746595005668, 0.5544955814857395]), Ferrite.Node{2, Float64}([0.4773632501523721, 0.33970530481730954]), Ferrite.Node{2, Float64}([0.4640687092382758, 0.45073264476884767]), Ferrite.Node{2, Float64}([0.5673862832010109, 0.6502733177441277]), Ferrite.Node{2, Float64}([0.36593227030528475, 0.4872171539051689]), Ferrite.Node{2, Float64}([0.6773917381820608, 0.4777949032272307]), Ferrite.Node{2, Float64}([0.5225603855864607, 0.5344788107726227]), Ferrite.Node{2, Float64}([0.4733875373049082, 0.6402608858085922])], Dict{String, OrderedCollections.OrderedSet{Int64}}(&quot;4&quot; =&gt; OrderedCollections.OrderedSet{Int64}([114, 105, 110, 111, 92, 99, 98, 89, 106, 96  …  102, 93, 113, 97, 88, 104, 91, 87, 100, 101]), &quot;1&quot; =&gt; OrderedCollections.OrderedSet{Int64}([5, 16, 20, 12, 24, 28, 8, 17, 30, 1  …  33, 4, 13, 15, 2, 10, 18, 21, 26, 27]), &quot;5&quot; =&gt; OrderedCollections.OrderedSet{Int64}([140, 123, 122, 133, 137, 136, 117, 135, 121, 115  …  139, 128, 124, 129, 131, 120, 127, 116, 132, 134]), &quot;2&quot; =&gt; OrderedCollections.OrderedSet{Int64}([35, 52, 37, 53, 47, 41, 43, 45, 36, 44  …  39, 51, 46, 40, 48, 34, 50, 54, 38, 42]), &quot;6&quot; =&gt; OrderedCollections.OrderedSet{Int64}([158, 169, 173, 141, 148, 160, 154, 171, 145, 146  …  168, 174, 163, 147, 165, 144, 142, 167, 157, 150]), &quot;3&quot; =&gt; OrderedCollections.OrderedSet{Int64}([78, 56, 55, 79, 81, 58, 60, 72, 75, 83  …  71, 66, 76, 57, 59, 70, 65, 63, 86, 62])), Dict{String, OrderedCollections.OrderedSet{Int64}}(), Dict{String, OrderedCollections.OrderedSet{Ferrite.FacetIndex}}(&quot;left&quot; =&gt; OrderedCollections.OrderedSet{Ferrite.FacetIndex}([Ferrite.FacetIndex((96, 1)), Ferrite.FacetIndex((101, 1)), Ferrite.FacetIndex((108, 1)), Ferrite.FacetIndex((115, 2)), Ferrite.FacetIndex((118, 2)), Ferrite.FacetIndex((122, 1)), Ferrite.FacetIndex((125, 1)), Ferrite.FacetIndex((127, 1))]), &quot;bottom&quot; =&gt; OrderedCollections.OrderedSet{Ferrite.FacetIndex}([Ferrite.FacetIndex((69, 1)), Ferrite.FacetIndex((73, 1)), Ferrite.FacetIndex((78, 1)), Ferrite.FacetIndex((79, 1)), Ferrite.FacetIndex((90, 3)), Ferrite.FacetIndex((104, 1)), Ferrite.FacetIndex((106, 1)), Ferrite.FacetIndex((107, 1))]), &quot;top&quot; =&gt; OrderedCollections.OrderedSet{Ferrite.FacetIndex}([Ferrite.FacetIndex((21, 1)), Ferrite.FacetIndex((23, 1)), Ferrite.FacetIndex((28, 1)), Ferrite.FacetIndex((35, 1)), Ferrite.FacetIndex((36, 2)), Ferrite.FacetIndex((42, 3)), Ferrite.FacetIndex((43, 3)), Ferrite.FacetIndex((47, 3))])), Dict{String, OrderedCollections.OrderedSet{Ferrite.VertexIndex}}()), 2914), true))</code></pre><h3 id="P-multigrid-Configuration"><a class="docs-heading-anchor" href="#P-multigrid-Configuration">P-multigrid Configuration</a><a id="P-multigrid-Configuration-1"></a><a class="docs-heading-anchor-permalink" href="#P-multigrid-Configuration" title="Permalink"></a></h3><pre><code class="language-julia hljs">reset_timer!()
+
+pcoarse_solver = SmoothedAggregationCoarseSolver(; B)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">SmoothedAggregationCoarseSolver{Tuple{}, Base.Pairs{Symbol, Matrix{Float64}, Nothing, @NamedTuple{B::Matrix{Float64}}}}((), Base.Pairs(:B =&gt; [1.0 0.0 -1.0; 0.0 1.0 0.801534880751; … ; 1.0 0.0 -0.4777949032272307; 0.0 1.0 0.1265859930873549]))</code></pre><h4 id="0.-CG-as-baseline"><a class="docs-heading-anchor" href="#0.-CG-as-baseline">0. CG as baseline</a><a id="0.-CG-as-baseline-1"></a><a class="docs-heading-anchor-permalink" href="#0.-CG-as-baseline" title="Permalink"></a></h4><pre><code class="language-julia hljs">@timeit &quot;CG&quot; x_cg = IterativeSolvers.cg(A, b; maxiter = 1000, verbose=false)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">2914-element Vector{Float64}:
+ -0.009922773142129101
+  0.027908992919798835
+ -0.012273544906839417
+  0.02778766287937867
+ -0.01171609807787134
+  0.03380248712544142
+ -0.010480498291317988
+  0.027964097065637683
+ -0.011058650993627232
+  0.027963704627201345
+  ⋮
+  0.02044737400079658
+ -0.003425201397929082
+  0.01966749967600462
+ -0.006499317726805468
+  0.027966501533483217
+ -0.007055602277993196
+  0.029169542096681003
+ -0.007090577588019493
+  0.029186469234192165</code></pre><h4 id="1.-Galerkin-Coarsening-Strategy"><a class="docs-heading-anchor" href="#1.-Galerkin-Coarsening-Strategy">1. Galerkin Coarsening Strategy</a><a id="1.-Galerkin-Coarsening-Strategy-1"></a><a class="docs-heading-anchor-permalink" href="#1.-Galerkin-Coarsening-Strategy" title="Permalink"></a></h4><pre><code class="language-julia hljs">config_gal = pmultigrid_config(coarse_strategy = Galerkin())
+@timeit &quot;Galerkin only&quot; x_gal, res_gal = FerriteMultigrid.solve(A, b,fe_space, config_gal; pcoarse_solver, verbose=false, log=true, rtol = 1e-10)
+
+builder_gal = PMultigridPreconBuilder(fe_space, config_gal; pcoarse_solver)
+@timeit &quot;Build preconditioner&quot; Pl_gal = builder_gal(A)[1]
+@timeit &quot;Galerkin CG&quot; IterativeSolvers.cg(A, b; Pl = Pl_gal, maxiter = 1000, verbose=false)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">2914-element Vector{Float64}:
+ -0.00992277315074982
+  0.027908992913412128
+ -0.012273544888830971
+  0.02778766291311703
+ -0.011716098087832071
+  0.03380248711993018
+ -0.01048049829364379
+  0.027964097067214727
+ -0.01105865098999501
+  0.027963704638106202
+  ⋮
+  0.02044737399268512
+ -0.003425201420622597
+  0.019667499668565236
+ -0.00649931770467806
+  0.02796650151137346
+ -0.007055602255972188
+  0.029169542075212395
+ -0.007090577561606642
+  0.029186469211926667</code></pre><h4 id="2.-Rediscretization-Coarsening-Strategy"><a class="docs-heading-anchor" href="#2.-Rediscretization-Coarsening-Strategy">2. Rediscretization Coarsening Strategy</a><a id="2.-Rediscretization-Coarsening-Strategy-1"></a><a class="docs-heading-anchor-permalink" href="#2.-Rediscretization-Coarsening-Strategy" title="Permalink"></a></h4><pre><code class="language-julia hljs"># Rediscretization Coarsening Strategy
+config_red = pmultigrid_config(coarse_strategy = Rediscretization(LinearElasticityMultigrid(C)))
+@timeit &quot;Rediscretization only&quot; x_red, res_red = solve(A, b, fe_space, config_red; pcoarse_solver, log=true, rtol = 1e-10)
+
+builder_red = PMultigridPreconBuilder(fe_space, config_red; pcoarse_solver)
+@timeit &quot;Build preconditioner&quot; Pl_red = builder_red(A)[1]
+@timeit &quot;Rediscretization CG&quot; IterativeSolvers.cg(A, b; Pl = Pl_red, maxiter = 1000, verbose=false)
+
+print_timer(title = &quot;Analysis with $(getncells(dh.grid)) elements&quot;, linechars = :ascii)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr1">---------------------------------------------------------------------------------------</span>
+<span class="sgr1">     Analysis with 174 elements      </span>         Time                    Allocations
+                                     -----------------------   ------------------------
+          Tot / % measured:               391ms /  74.4%           60.5MiB /  82.0%
+
+Section                      ncalls     time    %tot     avg     alloc    %tot      avg
+---------------------------------------------------------------------------------------
+Galerkin only                     1   84.0ms   28.9%  84.0ms   14.9MiB   30.0%  14.9MiB
+  solve!                          1   70.9ms   24.4%  70.9ms   4.74MiB    9.5%  4.74MiB
+    Postsmoother                100   25.2ms    8.6%   252μs     0.00B    0.0%    0.00B
+    Presmoother                 100   25.1ms    8.6%   251μs     0.00B    0.0%    0.00B
+    Residual eval               100   8.25ms    2.8%  82.5μs     0.00B    0.0%    0.00B
+    Coarse solve                100   2.34ms    0.8%  23.4μs    233KiB    0.5%  2.33KiB
+      Presmoother               200    830μs    0.3%  4.15μs     0.00B    0.0%    0.00B
+      Postsmoother              200    819μs    0.3%  4.10μs     0.00B    0.0%    0.00B
+      Residual eval             200    247μs    0.1%  1.24μs     0.00B    0.0%    0.00B
+      Restriction               200    118μs    0.0%   592ns     0.00B    0.0%    0.00B
+      Prolongation              200    105μs    0.0%   526ns     0.00B    0.0%    0.00B
+      Coarse solve              100   14.8μs    0.0%   148ns     0.00B    0.0%    0.00B
+    Prolongation                100    505μs    0.2%  5.05μs     0.00B    0.0%    0.00B
+    Restriction                 100    415μs    0.1%  4.15μs     0.00B    0.0%    0.00B
+  init                            1   13.1ms    4.5%  13.1ms   10.2MiB   20.5%  10.2MiB
+    extend_hierarchy!             1   12.4ms    4.3%  12.4ms   9.08MiB   18.3%  9.08MiB
+      build prolongator           1   11.2ms    3.9%  11.2ms   4.42MiB    8.9%  4.42MiB
+        assembly                  1   11.2ms    3.9%  11.2ms   4.39MiB    8.8%  4.39MiB
+        row normalization         1   11.8μs    0.0%  11.8μs     0.00B    0.0%    0.00B
+      RAP                         1   1.14ms    0.4%  1.14ms   4.65MiB    9.4%  4.65MiB
+      build restriction           1    100ns    0.0%   100ns     48.0B    0.0%    48.0B
+    coarse solver setup           1    502μs    0.2%   502μs   1.01MiB    2.0%  1.01MiB
+      extend_hierarchy!           2    443μs    0.2%   221μs   1.00MiB    2.0%   511KiB
+        fit candidates            2    113μs    0.0%  56.5μs   85.7KiB    0.2%  42.9KiB
+        improve candidates        2    107μs    0.0%  53.6μs     0.00B    0.0%    0.00B
+        restriction setup         2   98.7μs    0.0%  49.3μs    676KiB    1.3%   338KiB
+        RAP                       2   86.2μs    0.0%  43.1μs    191KiB    0.4%  95.5KiB
+        strength                  2   26.6μs    0.0%  13.3μs   52.1KiB    0.1%  26.1KiB
+        aggregation               2   6.16μs    0.0%  3.08μs   8.92KiB    0.0%  4.46KiB
+      coarse solver setup         1   47.3μs    0.0%  47.3μs   3.19KiB    0.0%  3.19KiB
+      ml setup                    1   4.04μs    0.0%  4.04μs      224B    0.0%     224B
+      prologue                    1   3.97μs    0.0%  3.97μs   6.93KiB    0.0%  6.93KiB
+    coarsen order                 1    161μs    0.1%   161μs   61.4KiB    0.1%  61.4KiB
+Rediscretization only             1   82.8ms   28.4%  82.8ms   13.8MiB   27.9%  13.8MiB
+  solve!                          1   70.4ms   24.2%  70.4ms   4.73MiB    9.5%  4.73MiB
+    Postsmoother                100   25.1ms    8.6%   251μs     0.00B    0.0%    0.00B
+    Presmoother                 100   25.0ms    8.6%   250μs     0.00B    0.0%    0.00B
+    Residual eval               100   8.13ms    2.8%  81.3μs     0.00B    0.0%    0.00B
+    Coarse solve                100   2.28ms    0.8%  22.8μs    230KiB    0.5%  2.30KiB
+      Presmoother               200    814μs    0.3%  4.07μs     0.00B    0.0%    0.00B
+      Postsmoother              200    797μs    0.3%  3.98μs     0.00B    0.0%    0.00B
+      Residual eval             200    243μs    0.1%  1.22μs     0.00B    0.0%    0.00B
+      Restriction               200    113μs    0.0%   564ns     0.00B    0.0%    0.00B
+      Prolongation              200   94.0μs    0.0%   470ns     0.00B    0.0%    0.00B
+      Coarse solve              100   13.3μs    0.0%   133ns     0.00B    0.0%    0.00B
+    Prolongation                100    479μs    0.2%  4.79μs     0.00B    0.0%    0.00B
+    Restriction                 100    412μs    0.1%  4.12μs     0.00B    0.0%    0.00B
+  init                            1   12.3ms    4.2%  12.3ms   9.10MiB   18.3%  9.10MiB
+    extend_hierarchy!             1   11.7ms    4.0%  11.7ms   8.48MiB   17.1%  8.48MiB
+      assembly                    1   11.0ms    3.8%  11.0ms   4.39MiB    8.8%  4.39MiB
+      row normalization           1   10.8μs    0.0%  10.8μs     0.00B    0.0%    0.00B
+    coarse solver setup           1    469μs    0.2%   469μs    546KiB    1.1%   546KiB
+      extend_hierarchy!           2    439μs    0.2%   220μs    533KiB    1.0%   267KiB
+        fit candidates            2    140μs    0.0%  70.1μs   82.2KiB    0.2%  41.1KiB
+        improve candidates        2    109μs    0.0%  54.5μs     0.00B    0.0%    0.00B
+        RAP                       2   84.8μs    0.0%  42.4μs    175KiB    0.3%  87.4KiB
+        restriction setup         2   58.0μs    0.0%  29.0μs    192KiB    0.4%  96.0KiB
+        strength                  2   28.8μs    0.0%  14.4μs   51.6KiB    0.1%  25.8KiB
+        aggregation               2   13.1μs    0.0%  6.54μs   24.0KiB    0.0%  12.0KiB
+      coarse solver setup         1   23.5μs    0.0%  23.5μs   3.19KiB    0.0%  3.19KiB
+      ml setup                    1   3.15μs    0.0%  3.15μs      224B    0.0%     224B
+      prologue                    1   1.14μs    0.0%  1.14μs   6.93KiB    0.0%  6.93KiB
+    coarsen order                 1    158μs    0.1%   158μs   61.4KiB    0.1%  61.4KiB
+CG                                1   60.6ms   20.8%  60.6ms   92.8KiB    0.2%  92.8KiB
+Build preconditioner              2   25.4ms    8.7%  12.7ms   19.3MiB   38.8%  9.64MiB
+  pmultigrid hierarchy            2   25.4ms    8.7%  12.7ms   19.3MiB   38.8%  9.64MiB
+    extend_hierarchy!             2   24.1ms    8.3%  12.0ms   17.6MiB   35.4%  8.78MiB
+      assembly                    1   11.2ms    3.9%  11.2ms   4.39MiB    8.8%  4.39MiB
+      build prolongator           1   11.1ms    3.8%  11.1ms   4.42MiB    8.9%  4.42MiB
+        assembly                  1   11.1ms    3.8%  11.1ms   4.39MiB    8.8%  4.39MiB
+        row normalization         1   10.5μs    0.0%  10.5μs     0.00B    0.0%    0.00B
+      RAP                         1   1.10ms    0.4%  1.10ms   4.65MiB    9.4%  4.65MiB
+      row normalization           1   11.9μs    0.0%  11.9μs     0.00B    0.0%    0.00B
+      build restriction           1    131ns    0.0%   131ns     48.0B    0.0%    48.0B
+    coarse solver setup           2    945μs    0.3%   473μs   1.54MiB    3.1%   789KiB
+      extend_hierarchy!           4    864μs    0.3%   216μs   1.52MiB    3.1%   388KiB
+        improve candidates        4    218μs    0.1%  54.5μs     0.00B    0.0%    0.00B
+        fit candidates            4    218μs    0.1%  54.4μs    168KiB    0.3%  42.0KiB
+        RAP                       4    180μs    0.1%  45.0μs    366KiB    0.7%  91.4KiB
+        restriction setup         4    152μs    0.1%  38.0μs    868KiB    1.7%   217KiB
+        strength                  4   56.2μs    0.0%  14.1μs    104KiB    0.2%  25.9KiB
+        aggregation               4   31.0μs    0.0%  7.75μs   32.9KiB    0.1%  8.22KiB
+      coarse solver setup         2   61.2μs    0.0%  30.6μs   6.38KiB    0.0%  3.19KiB
+      ml setup                    2   7.91μs    0.0%  3.96μs      448B    0.0%     224B
+      prologue                    2   6.04μs    0.0%  3.02μs   13.9KiB    0.0%  6.93KiB
+    coarsen order                 2    313μs    0.1%   157μs    123KiB    0.2%  61.4KiB
+Rediscretization CG               1   19.8ms    6.8%  19.8ms    804KiB    1.6%   804KiB
+  Presmoother                    28   7.01ms    2.4%   250μs     0.00B    0.0%    0.00B
+  Postsmoother                   28   7.00ms    2.4%   250μs     0.00B    0.0%    0.00B
+  Residual eval                  28   2.28ms    0.8%  81.4μs     0.00B    0.0%    0.00B
+  Coarse solve                   28    644μs    0.2%  23.0μs   66.0KiB    0.1%  2.36KiB
+    Presmoother                  56    231μs    0.1%  4.13μs     0.00B    0.0%    0.00B
+    Postsmoother                 56    222μs    0.1%  3.96μs     0.00B    0.0%    0.00B
+    Residual eval                56   69.6μs    0.0%  1.24μs     0.00B    0.0%    0.00B
+    Restriction                  56   31.5μs    0.0%   562ns     0.00B    0.0%    0.00B
+    Prolongation                 56   26.5μs    0.0%   474ns     0.00B    0.0%    0.00B
+    Coarse solve                 28   4.74μs    0.0%   169ns     0.00B    0.0%    0.00B
+  Prolongation                   28    130μs    0.0%  4.65μs     0.00B    0.0%    0.00B
+  Restriction                    28    119μs    0.0%  4.25μs     0.00B    0.0%    0.00B
+Galerkin CG                       1   18.5ms    6.4%  18.5ms    754KiB    1.5%   754KiB
+  Postsmoother                   26   6.52ms    2.2%   251μs     0.00B    0.0%    0.00B
+  Presmoother                    26   6.50ms    2.2%   250μs     0.00B    0.0%    0.00B
+  Residual eval                  26   2.12ms    0.7%  81.6μs     0.00B    0.0%    0.00B
+  Coarse solve                   26    622μs    0.2%  23.9μs   62.3KiB    0.1%  2.39KiB
+    Presmoother                  52    228μs    0.1%  4.39μs     0.00B    0.0%    0.00B
+    Postsmoother                 52    209μs    0.1%  4.02μs     0.00B    0.0%    0.00B
+    Residual eval                52   67.9μs    0.0%  1.31μs     0.00B    0.0%    0.00B
+    Restriction                  52   30.5μs    0.0%   586ns     0.00B    0.0%    0.00B
+    Prolongation                 52   27.2μs    0.0%   522ns     0.00B    0.0%    0.00B
+    Coarse solve                 26   4.23μs    0.0%   163ns     0.00B    0.0%    0.00B
+  Prolongation                   26    143μs    0.0%  5.49μs     0.00B    0.0%    0.00B
+  Restriction                    26    108μs    0.0%  4.16μs     0.00B    0.0%    0.00B
+<span class="sgr1">---------------------------------------------------------------------------------------</span></code></pre><h3 id="Test-the-solution"><a class="docs-heading-anchor" href="#Test-the-solution">Test the solution</a><a id="Test-the-solution-1"></a><a class="docs-heading-anchor-permalink" href="#Test-the-solution" title="Permalink"></a></h3><pre><code class="language-julia hljs">using Test
+@testset &quot;Linear Elasticity Example&quot; begin
+    println(&quot;Final residual with Galerkin coarsening: &quot;, res_gal[end])
+    @test A * x_gal ≈ b atol=1e-4
+    println(&quot;Final residual with Rediscretization coarsening: &quot;, res_red[end])
+    @test A * x_red ≈ b atol=1e-4
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Test.DefaultTestSet(&quot;Linear Elasticity Example&quot;, Any[], 2, false, false, true, 1.771278329143887e9, 1.771278329144304e9, false, &quot;linear_elasticity.md&quot;, Random.Xoshiro(0x07f9f19fc206ce53, 0x80de986faea45cd6, 0xa78ba20b95b7d93b, 0x7d8096f63d3cd8f6, 0x3ed405e4673511b6))</code></pre><h2 id="linear-elasticity-plain-program"><a class="docs-heading-anchor" href="#linear-elasticity-plain-program">Plain program</a><a id="linear-elasticity-plain-program-1"></a><a class="docs-heading-anchor-permalink" href="#linear-elasticity-plain-program" title="Permalink"></a></h2><p>Here follows a version of the program without any comments. The file is also available here: <a href="../linear_elasticity.jl"><code>linear_elasticity.jl</code></a>.</p><pre><code class="language-julia hljs">using Ferrite, FerriteGmsh, FerriteMultigrid, AlgebraicMultigrid
+using Downloads: download
+using IterativeSolvers
+using TimerOutputs
+
+TimerOutputs.enable_debug_timings(AlgebraicMultigrid)
+TimerOutputs.enable_debug_timings(FerriteMultigrid)
+
+Emod = 200.0e3 # Young&#39;s modulus [MPa]
+ν = 0.3        # Poisson&#39;s ratio [-]
+
+Gmod = Emod / (2(1 + ν))  # Shear modulus
+Kmod = Emod / (3(1 - 2ν)) # Bulk modulus
+
+C = gradient(ϵ -&gt; 2 * Gmod * dev(ϵ) + 3 * Kmod * vol(ϵ), zero(SymmetricTensor{2,2}))
+
+function assemble_external_forces!(f_ext, dh, facetset, facetvalues, prescribed_traction)
+    # Create a temporary array for the facet&#39;s local contributions to the external force vector
+    fe_ext = zeros(getnbasefunctions(facetvalues))
+    for facet in FacetIterator(dh, facetset)
+        # Update the facetvalues to the correct facet number
+        reinit!(facetvalues, facet)
+        # Reset the temporary array for the next facet
+        fill!(fe_ext, 0.0)
+        # Access the cell&#39;s coordinates
+        cell_coordinates = getcoordinates(facet)
+        for qp in 1:getnquadpoints(facetvalues)
+            # Calculate the global coordinate of the quadrature point.
+            x = spatial_coordinate(facetvalues, qp, cell_coordinates)
+            tₚ = prescribed_traction(x)
+            # Get the integration weight for the current quadrature point.
+            dΓ = getdetJdV(facetvalues, qp)
+            for i in 1:getnbasefunctions(facetvalues)
+                Nᵢ = shape_value(facetvalues, qp, i)
+                fe_ext[i] += tₚ ⋅ Nᵢ * dΓ
+            end
+        end
+        # Add the local contributions to the correct indices in the global external force vector
+        assemble!(f_ext, celldofs(facet), fe_ext)
+    end
+    return f_ext
+end
+
+function assemble_cell!(ke, cellvalues, C)
+    for q_point in 1:getnquadpoints(cellvalues)
+        # Get the integration weight for the quadrature point
+        dΩ = getdetJdV(cellvalues, q_point)
+        for i in 1:getnbasefunctions(cellvalues)
+            # Gradient of the test function
+            ∇Nᵢ = shape_gradient(cellvalues, q_point, i)
+            for j in 1:getnbasefunctions(cellvalues)
+                # Symmetric gradient of the trial function
+                ∇ˢʸᵐNⱼ = shape_symmetric_gradient(cellvalues, q_point, j)
+                ke[i, j] += (∇Nᵢ ⊡ C ⊡ ∇ˢʸᵐNⱼ) * dΩ
+            end
+        end
+    end
+    return ke
+end
+
+function assemble_global!(K, dh, cellvalues, C)
+    # Allocate the element stiffness matrix
+    n_basefuncs = getnbasefunctions(cellvalues)
+    ke = zeros(n_basefuncs, n_basefuncs)
+    # Create an assembler
+    assembler = start_assemble(K)
+    # Loop over all cells
+    for cell in CellIterator(dh)
+        # Update the shape function gradients based on the cell coordinates
+        reinit!(cellvalues, cell)
+        # Reset the element stiffness matrix
+        fill!(ke, 0.0)
+        # Compute element contribution
+        assemble_cell!(ke, cellvalues, C)
+        # Assemble ke into K
+        assemble!(assembler, celldofs(cell), ke)
+    end
+    return K
+end
+
+function linear_elasticity_2d(C)
+    logo_mesh = &quot;logo.geo&quot;
+    asset_url = &quot;https://raw.githubusercontent.com/Ferrite-FEM/Ferrite.jl/gh-pages/assets/&quot;
+    isfile(logo_mesh) || download(string(asset_url, logo_mesh), logo_mesh)
+
+    grid = togrid(logo_mesh)
+    addfacetset!(grid, &quot;top&quot;, x -&gt; x[2] ≈ 1.0) # facets for which x[2] ≈ 1.0 for all nodes
+    addfacetset!(grid, &quot;left&quot;, x -&gt; abs(x[1]) &lt; 1.0e-6)
+    addfacetset!(grid, &quot;bottom&quot;, x -&gt; abs(x[2]) &lt; 1.0e-6)
+
+    dim = 2
+    order = 4
+    ip = Lagrange{RefTriangle,order}()^dim # vector valued interpolation
+    ip_coarse = Lagrange{RefTriangle,1}()^dim
+
+    qr = QuadratureRule{RefTriangle}(8)
+    qr_face = FacetQuadratureRule{RefTriangle}(6)
+
+    cellvalues = CellValues(qr, ip)
+    facetvalues = FacetValues(qr_face, ip)
+
+    dh = DofHandler(grid)
+    add!(dh, :u, ip)
+    close!(dh)
+
+    dh_coarse = DofHandler(grid)
+    add!(dh_coarse, :u, ip_coarse)
+    close!(dh_coarse)
+
+    ch = ConstraintHandler(dh)
+    add!(ch, Dirichlet(:u, getfacetset(grid, &quot;bottom&quot;), (x, t) -&gt; 0.0, 2))
+    add!(ch, Dirichlet(:u, getfacetset(grid, &quot;left&quot;), (x, t) -&gt; 0.0, 1))
+    close!(ch)
+
+    traction(x) = Vec(0.0, 20.0e3 * x[1])
+
+    A = allocate_matrix(dh)
+    assemble_global!(A, dh, cellvalues, C)
+
+    b = zeros(ndofs(dh))
+    assemble_external_forces!(b, dh, getfacetset(grid, &quot;top&quot;), facetvalues, traction)
+    apply!(A, b, ch)
+
+    return A, b, dh, dh_coarse, cellvalues, ch
+end
+
+function create_nns(dh, fieldname = first(dh.field_names))
+    @assert length(dh.field_names) == 1 &quot;Only a single field is supported for now.&quot;
+
+    coords_flat = zeros(ndofs(dh))
+    apply_analytical!(coords_flat, dh, fieldname, x -&gt; x)
+    coords = reshape(coords_flat, (length(coords_flat) ÷ 2, 2))
+
+    grid = dh.grid
+    B = zeros(Float64, ndofs(dh), 3)
+    B[1:2:end, 1] .= 1 # x - translation
+    B[2:2:end, 2] .= 1 # y - translation
+
+    # in-plane rotation (x,y) → (-y,x)
+    x = coords[:, 1]
+    y = coords[:, 2]
+    B[1:2:end, 3] .= -y
+    B[2:2:end, 3] .= x
+
+    return B
+end
+
+using FerriteMultigrid
+
+A, b, dh, dh_coarse, cellvalues, ch = linear_elasticity_2d(C);
+
+B = create_nns(dh_coarse)
+
+fe_space = FESpace(dh, cellvalues, ch)
+
+reset_timer!()
+
+pcoarse_solver = SmoothedAggregationCoarseSolver(; B)
+
+@timeit &quot;CG&quot; x_cg = IterativeSolvers.cg(A, b; maxiter = 1000, verbose=false)
+
+config_gal = pmultigrid_config(coarse_strategy = Galerkin())
+@timeit &quot;Galerkin only&quot; x_gal, res_gal = FerriteMultigrid.solve(A, b,fe_space, config_gal; pcoarse_solver, verbose=false, log=true, rtol = 1e-10)
+
+builder_gal = PMultigridPreconBuilder(fe_space, config_gal; pcoarse_solver)
+@timeit &quot;Build preconditioner&quot; Pl_gal = builder_gal(A)[1]
+@timeit &quot;Galerkin CG&quot; IterativeSolvers.cg(A, b; Pl = Pl_gal, maxiter = 1000, verbose=false)
+
+# Rediscretization Coarsening Strategy
+config_red = pmultigrid_config(coarse_strategy = Rediscretization(LinearElasticityMultigrid(C)))
+@timeit &quot;Rediscretization only&quot; x_red, res_red = solve(A, b, fe_space, config_red; pcoarse_solver, log=true, rtol = 1e-10)
+
+builder_red = PMultigridPreconBuilder(fe_space, config_red; pcoarse_solver)
+@timeit &quot;Build preconditioner&quot; Pl_red = builder_red(A)[1]
+@timeit &quot;Rediscretization CG&quot; IterativeSolvers.cg(A, b; Pl = Pl_red, maxiter = 1000, verbose=false)
+
+print_timer(title = &quot;Analysis with $(getncells(dh.grid)) elements&quot;, linechars = :ascii)
+
+using Test
+@testset &quot;Linear Elasticity Example&quot; begin
+    println(&quot;Final residual with Galerkin coarsening: &quot;, res_gal[end])
+    @test A * x_gal ≈ b atol=1e-4
+    println(&quot;Final residual with Rediscretization coarsening: &quot;, res_red[end])
+    @test A * x_red ≈ b atol=1e-4
+end</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../">« Home</a><a class="docs-footer-nextpage" href="../hyperelasticity/">Nonlinear Elasticity »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Monday 16 February 2026 21:45">Monday 16 February 2026</span>. Using Julia version 1.12.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
