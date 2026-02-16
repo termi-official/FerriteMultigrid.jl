@@ -22,15 +22,17 @@ function element_prolongator!(
     end
 
     # Invert the mass matrix to get the prolongator
-    # _element_mass_matrix!(Me, fine_cv)
-    # lu_fact = lu!(Me)
-    # ldiv!(Pe, lu_fact, Pe_buffer)
+    _element_mass_matrix!(Me, fine_cv)
+    lu_fact = qr(Me)
+    ldiv!(Pe, lu_fact, Pe_buffer)
 
-    _element_mass_matrix_lumped!(Me, fine_cv)
-    for i in 1:size(Me, 1)
-        Me[i,i] = inv(Me[i,i])
-    end
-    mul!(Pe, Me, Pe_buffer)
+    # TODO investigate why this fails
+    # _element_mass_matrix_lumped!(Me, fine_cv)
+    # for i in 1:size(Me, 1)
+    #     Me[i,i] = inv(Me[i,i])
+    # end
+    # mul!(Pe, Me, Pe_buffer)
+
     return drop_small_entries!(Pe)
 end
 

@@ -161,11 +161,10 @@ function create_nns(dh, fieldname = first(dh.field_names))
     return B
 end
 
-function _solve()
+function _solve(N = 10)
     reset_timer!()
 
     ## Generate a grid
-    N = 10
     L = 1.0
     left = zero(Vec{3})
     right = L * ones(Vec{3})
@@ -267,12 +266,14 @@ function _solve()
 
         ## Compute increment using conjugate gradients
         fill!(ΔΔu, 0.0)
-        @info "Setup"
         @timeit "Setup preconditioner" Pl = builder(K)[1]
-        @timeit "Galerkin CG" IterativeSolvers.cg!(ΔΔu, K, g; Pl, maxiter = 1000, verbose=true)
-        # @timeit "Galerkin only" solve(K, g, fe_space, config_gal;B = B, log=true, rtol = 1e-10)
+        @timeit "Galerkin CG" IterativeSolvers.cg!(ΔΔu, K, g; Pl, maxiter = 100, verbose=false)
         fill!(ΔΔu, 0.0)
-        @timeit "CG" IterativeSolvers.cg!(ΔΔu, K, g; maxiter = 1000, verbose=true)
+        @timeit "Galerkin GMRES" IterativeSolvers.gmres!(ΔΔu, K, g; Pl, maxiter = 100, verbose=false)
+        fill!(ΔΔu, 0.0)
+        @timeit "CG" IterativeSolvers.cg!(ΔΔu, K, g; maxiter = 1000, verbose=false)
+        fill!(ΔΔu, 0.0)
+        @timeit "GMRES" IterativeSolvers.gmres!(ΔΔu, K, g; maxiter = 1000, verbose=false)
 
         apply_zero!(ΔΔu, ch)
         Δu .-= ΔΔu
