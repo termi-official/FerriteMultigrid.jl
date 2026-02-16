@@ -350,7 +350,7 @@ uuid = "4f95f4f8-b27c-4ae5-9a39-ea55e634e36b"
 version = "1.2.1"
 
 [[deps.FerriteMultigrid]]
-deps = ["AlgebraicMultigrid", "CommonSolve", "Ferrite", "FerriteGmsh", "LinearAlgebra", "LinearSolve", "Reexport", "SparseArrays"]
+deps = ["AlgebraicMultigrid", "CommonSolve", "Ferrite", "FerriteGmsh", "LinearAlgebra", "LinearSolve", "Reexport", "SparseArrays", "TimerOutputs"]
 path = ".."
 uuid = "69a0a054-a29c-4d77-8818-cd7ec12cfcdc"
 version = "1.0.0"

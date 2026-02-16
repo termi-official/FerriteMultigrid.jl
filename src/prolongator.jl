@@ -103,9 +103,17 @@ function build_prolongator(fine_fespace::FESpace, coarse_fespace::FESpace)
         end
     end
     # Normalize the rows of P by how many times they were visited
-    for i in 1:fine_ndofs
-        if row_contrib[i] > 1
-            P[i, :] ./= row_contrib[i]
+    # Iterate over CSC nonzeros directly — O(nnz) instead of O(nrows × ncols)
+    @timeit_debug "row normalization" begin
+        rows = rowvals(P)
+        vals = nonzeros(P)
+        for j in 1:size(P, 2)
+            for idx in nzrange(P, j)
+                row = rows[idx]
+                if row_contrib[row] > 1
+                    vals[idx] /= row_contrib[row]
+                end
+            end
         end
     end
 

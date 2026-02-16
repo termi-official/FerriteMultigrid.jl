@@ -17,14 +17,17 @@ end
 
 RugeStubenCoarseSolver(args...; kwargs...) = RugeStubenCoarseSolver(args, kwargs)
 
-struct AMGCoarseSolver{TA,TG<:AMGAlg,TK,TKW} <: CoarseSolver
+mutable struct AMGCoarseSolver{TA,TG<:AMGAlg,TK,TKW} <: CoarseSolver
     A::TA
     alg::TG
     args::TK
     kwargs::TKW
+    ml::Any  # cached AMG MultiLevel, built on first call
 end
 
-AMGCoarseSolver(A, alg::AMGAlg, args...; kwargs...) = AMGCoarseSolver(A, alg, args, kwargs)
+function AMGCoarseSolver(A, alg::AMGAlg, args...; kwargs...)
+    AMGCoarseSolver(A, alg, args, kwargs, nothing)
+end
 
 function (sa::SmoothedAggregationCoarseSolver)(A)
     return AMGCoarseSolver(A, SmoothedAggregationAMG(),sa.args...; sa.kwargs...)
@@ -35,13 +38,12 @@ function (rs::RugeStubenCoarseSolver)(A)
 end
 
 function (amg::AMGCoarseSolver)(x::Vector, b::Vector)
-    solve_res = AMG.solve(amg.A, b, amg.alg, amg.args...; amg.kwargs...)
-    if solve_res isa Tuple
-        x_amg, _ = solve_res
-        x .= x_amg
-    else
-        x .= solve_res
+    if isnothing(amg.ml)
+        amg.ml = AMG.init(amg.alg, amg.A, b, amg.args...; amg.kwargs...).ml
     end
+    # Single V-cycle: AMG is a coarse solver inside an outer iteration,
+    # so it doesn't need to converge on its own.
+    AMG._solve!(x, amg.ml, b; maxiter=1, calculate_residual=false)
 end
 
 """
@@ -63,11 +65,12 @@ function solve(A::AbstractMatrix, b::Vector, fe_space::FESpace, pgrid_config::PM
 end
 
 function init(A, b, fine_fespace::FESpace, pgrid_config::PMultigridConfiguration, pcoarse_solvertype = SmoothedAggregationCoarseSolver, args...; kwargs...)
-    PMGSolver(pmultigrid(A, fine_fespace, pgrid_config, setup_coarse_solver(pcoarse_solvertype,args...;kwargs...) ;kwargs...), b)
+    ml = @timeit_debug "pmultigrid hierarchy" pmultigrid(A, fine_fespace, pgrid_config, setup_coarse_solver(pcoarse_solvertype,args...;kwargs...) ;kwargs...)
+    PMGSolver(ml, b)
 end
 
 function solve!(solt::PMGSolver, args...; kwargs...)
-    _solve(solt.ml, solt.b, args...; kwargs...)
+    @timeit_debug "AMG _solve" _solve(solt.ml, solt.b, args...; kwargs...)
 end
 
 setup_coarse_solver(solvertype ,args...;kwargs...) = solvertype
