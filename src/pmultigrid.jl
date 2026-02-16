@@ -73,14 +73,13 @@ function pmultigrid(
     fe_space::FESpace,
     pgrid_config::PMultigridConfiguration,
     pcoarse_solver, 
+    ::Type{Val{bs}} = Val{1};
     u = nothing,
     p = nothing,
-    ::Type{Val{bs}} = Val{1};
-    # presmoother = GaussSeidel(),
-    # postsmoother = GaussSeidel(),
-    presmoother = AMG.Jacobi(0.5, zeros(size(A, 1)), 2),
-    postsmoother = AMG.Jacobi(0.5, zeros(size(A, 1)), 2),
-    kwargs...) where {T,V,bs,TA<:SparseMatrixCSC{T,V}}
+    presmoother = GaussSeidel(),
+    postsmoother = GaussSeidel(),
+    kwargs...,
+    ) where {T,V,bs,TA<:SparseMatrixCSC{T,V}}
 
     levels = Vector{Level{TA,TA,Adjoint{T,TA}}}()
     w = MultiLevelWorkspace(Val{bs}, eltype(A))

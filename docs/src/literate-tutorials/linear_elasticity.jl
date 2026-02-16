@@ -21,7 +21,7 @@ using Downloads: download
 using IterativeSolvers
 using TimerOutputs
 
-TimerOutputs.enable_debug_timings(AlgebraicMultigrid)
+# TimerOutputs.enable_debug_timings(AlgebraicMultigrid)
 TimerOutputs.enable_debug_timings(FerriteMultigrid)
 
 Emod = 200.0e3 # Young's modulus [MPa]
@@ -200,36 +200,38 @@ fe_space = FESpace(dh, cellvalues, ch)
 
 reset_timer!()
 
+pcoarse_solver = SmoothedAggregationCoarseSolver(; B)
+
 # #### 0. CG as baseline
-@timeit "CG" x_cg = IterativeSolvers.cg(A, b; maxiter = 1000, verbose=false)
+@timeit "CG" x_cg = IterativeSolvers.cg(A, b; maxiter = 1000, verbose=true)
 
 # #### 1. Galerkin Coarsening Strategy
 config_gal = pmultigrid_config(coarse_strategy = Galerkin())
-@timeit "Galerkin only" x_gal, res_gal = FerriteMultigrid.solve(A, b,fe_space, config_gal;B = B, verbose=true, log=true, rtol = 1e-10)
+@timeit "Galerkin only" x_gal, res_gal = FerriteMultigrid.solve(A, b,fe_space, config_gal; pcoarse_solver, verbose=true, log=true, rtol = 1e-10)
 
-builder_gal = PMultigridPreconBuilder(fe_space, config_gal)
+builder_gal = PMultigridPreconBuilder(fe_space, config_gal; pcoarse_solver)
 @timeit "Build preconditioner" Pl_gal = builder_gal(A)[1]
-@timeit "Galerkin CG" IterativeSolvers.cg(A, b; Pl = Pl_gal, maxiter = 1000, verbose=false)
+@timeit "Galerkin CG" IterativeSolvers.cg(A, b; Pl = Pl_gal, maxiter = 1000, verbose=true)
 
 # #### 2. Rediscretization Coarsening Strategy
 ## Rediscretization Coarsening Strategy
 config_red = pmultigrid_config(coarse_strategy = Rediscretization(LinearElasticityMultigrid(C)))
-@timeit "Rediscretization only" x_red, res_red = solve(A, b, fe_space, config_red; B = B, log=true, rtol = 1e-10)
+@timeit "Rediscretization only" x_red, res_red = solve(A, b, fe_space, config_red; pcoarse_solver, log=true, rtol = 1e-10)
 
-builder_red = PMultigridPreconBuilder(fe_space, config_red)
+builder_red = PMultigridPreconBuilder(fe_space, config_red; pcoarse_solver)
 @timeit "Build preconditioner" Pl_red = builder_red(A)[1]
-@timeit "Rediscretization CG" IterativeSolvers.cg(A, b; Pl = Pl_red, maxiter = 1000, verbose=false)
+@timeit "Rediscretization CG" IterativeSolvers.cg(A, b; Pl = Pl_red, maxiter = 1000, verbose=true)
 
 print_timer(title = "Analysis with $(getncells(dh.grid)) elements", linechars = :ascii)
 
-# ### Test the solution
-# using Test
-# @testset "Linear Elasticity Example" begin
-#     println("Final residual with Galerkin coarsening: ", res_gal[end])
-#     @test A * x_gal ≈ b atol=1e-4
-#     println("Final residual with Rediscretization coarsening: ", res_red[end])
-#     @test A * x_red ≈ b atol=1e-4
-# end
+### Test the solution
+using Test
+@testset "Linear Elasticity Example" begin
+    println("Final residual with Galerkin coarsening: ", res_gal[end])
+    @test A * x_gal ≈ b atol=1e-4
+    println("Final residual with Rediscretization coarsening: ", res_red[end])
+    @test A * x_red ≈ b atol=1e-4
+end
 
 
 

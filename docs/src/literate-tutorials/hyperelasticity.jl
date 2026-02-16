@@ -239,8 +239,8 @@ function _solve()
     B = create_nns(dh_coarse)
     config_gal = pmultigrid_config(coarse_strategy = Galerkin())
     fe_space = FESpace(dh, cv, ch)
-
-    builder = PMultigridPreconBuilder(fe_space, config_gal)
+    pcoarse_solver = SmoothedAggregationCoarseSolver(; B)
+    builder = PMultigridPreconBuilder(fe_space, config_gal; pcoarse_solver)
 
     ## Perform Newton iterations
     newton_itr = -1
@@ -269,11 +269,9 @@ function _solve()
         fill!(ΔΔu, 0.0)
         @info "Setup"
         @timeit "Setup preconditioner" Pl = builder(K)[1]
-        @info "GCG"
         @timeit "Galerkin CG" IterativeSolvers.cg!(ΔΔu, K, g; Pl, maxiter = 1000, verbose=true)
         # @timeit "Galerkin only" solve(K, g, fe_space, config_gal;B = B, log=true, rtol = 1e-10)
         fill!(ΔΔu, 0.0)
-        @info "CG"
         @timeit "CG" IterativeSolvers.cg!(ΔΔu, K, g; maxiter = 1000, verbose=true)
 
         apply_zero!(ΔΔu, ch)

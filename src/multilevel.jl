@@ -55,24 +55,28 @@ end
     solve(A::AbstractMatrix, b::Vector, fe_space::FESpace, pgrid_config::PMultigridConfiguration = pmultigrid_config(), pcoarse_solvertype = SmoothedAggregationCoarseSolver, args...; kwargs...)
 This function solves the linear system `Ax = b` using polynomial multigrid methods with a coarse solver of type `pcoarse_solvertype`.
 
-# Fields
+# Arguments
 - `A`: The system matrix.
 - `b`: The right-hand side vector.
 - `fe_space`: See [`FESpace`](@ref) for details on the finite element space.   
 - `pgrid_config`: Configuration for the polynomial multigrid method, see [`PMultigridConfiguration`](@ref) for details.
 - `pcoarse_solvertype`: The type of coarse solver to use (e.g., `SmoothedAggregationCoarseSolver`, `Pinv`).
-- `args...`: Additional arguments for the coarse solver.
-- `kwargs...`: Additional keyword arguments for the coarse solver.
+- `args...`: Additional arguments for the init and solve.
+
+# Keyword arguments
+- `pcoarse_solver`: The coarse solver for the polynomial multigrid.
+- `kwargs...`: Additional keyword arguments for the init and solve.
 """
-function solve(A::AbstractMatrix, b::Vector, fe_space::FESpace, pgrid_config::PMultigridConfiguration = pmultigrid_config(), args...; B = nothing, pcoarse_solver = SmoothedAggregationCoarseSolver(; B), kwargs...)
-    @timeit_debug "init" solver = init(A, b, fe_space, pgrid_config, pcoarse_solver, args...; kwargs...)
+function solve(A::AbstractMatrix, b::Vector, fe_space::FESpace, pgrid_config::PMultigridConfiguration = pmultigrid_config(), args...; pcoarse_solver = SmoothedAggregationCoarseSolver(), kwargs...)
+    @timeit_debug "init" solver = init(A, b, fe_space, pgrid_config, args...; pcoarse_solver, kwargs...)
     @timeit_debug "solve!" solve!(solver, args...; kwargs...)
 end
 
-function init(A, b, fine_fespace::FESpace, pgrid_config::PMultigridConfiguration, args...; B = nothing, pcoarse_solver = SmoothedAggregationCoarseSolver(; B), kwargs...)
-    return PMGSolver(pmultigrid(A, fine_fespace, pgrid_config, pcoarse_solver, args...;kwargs...), b)
+function init(A, b, fine_fespace::FESpace, pgrid_config::PMultigridConfiguration = pmultigrid_config(), args...; pcoarse_solver = SmoothedAggregationCoarseSolver(), kwargs...)
+    ml = pmultigrid(A, fine_fespace, pgrid_config, pcoarse_solver, args...; kwargs...)
+    return PMGSolver(ml, b)
 end
 
 function solve!(solt::PMGSolver, args...; kwargs...)
-    @timeit_debug "AMG _solve" _solve(solt.ml, solt.b, args...; kwargs...)
+    _solve(solt.ml, solt.b, args...; kwargs...)
 end
