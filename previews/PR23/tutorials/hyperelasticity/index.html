@@ -1,0 +1,281 @@
+<!DOCTYPE html>
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Nonlinear Elasticity · FerriteMultigrid.jl</title><meta name="title" content="Nonlinear Elasticity · FerriteMultigrid.jl"/><meta property="og:title" content="Nonlinear Elasticity · FerriteMultigrid.jl"/><meta property="twitter:title" content="Nonlinear Elasticity · FerriteMultigrid.jl"/><meta name="description" content="Documentation for FerriteMultigrid.jl."/><meta property="og:description" content="Documentation for FerriteMultigrid.jl."/><meta property="twitter:description" content="Documentation for FerriteMultigrid.jl."/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script><link href="../../assets/citations.css" rel="stylesheet" type="text/css"/><link href="../../assets/custom.css" rel="stylesheet" type="text/css"/></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">FerriteMultigrid.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><span class="tocitem">Tutorials</span><ul><li><a class="tocitem" href="../linear_elasticity/">Linear Elasticity</a></li><li class="is-active"><a class="tocitem" href>Nonlinear Elasticity</a><ul class="internal"><li><a class="tocitem" href="#Implementation"><span>Implementation</span></a></li></ul></li></ul></li><li><span class="tocitem">API Reference</span><ul><li><a class="tocitem" href="../../api-reference/fe/">Finite Element</a></li><li><a class="tocitem" href="../../api-reference/multigrid_problems/">Multigrid Problems</a></li><li><a class="tocitem" href="../../api-reference/multilevel/">Multilevel</a></li><li><a class="tocitem" href="../../api-reference/pmg_config/">Multigrid Configuration</a></li></ul></li><li><a class="tocitem" href="../../references/">References</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Nonlinear Elasticity</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Nonlinear Elasticity</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/termi-official/FerriteMultigrid.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/termi-official/FerriteMultigrid.jl/blob/main/docs/src/literate-tutorials/hyperelasticity.jl" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="tutorial-nonlinear-elasticity"><a class="docs-heading-anchor" href="#tutorial-nonlinear-elasticity">Nonlinear Elasticity</a><a id="tutorial-nonlinear-elasticity-1"></a><a class="docs-heading-anchor-permalink" href="#tutorial-nonlinear-elasticity" title="Permalink"></a></h1><div class="admonition is-info" id="Note-d3c77ca29dcfbdfb"><header class="admonition-header">Note<a class="admonition-anchor" href="#Note-d3c77ca29dcfbdfb" title="Permalink"></a></header><div class="admonition-body"><p>The full explanation for the underlying FEM theory in this example can be found in the <a href="https://ferrite-fem.github.io/Ferrite.jl/stable/tutorials/hyperelasticity/">Hyperelasticity</a> tutorial of the Ferrite.jl documentation.</p></div></div><h2 id="Implementation"><a class="docs-heading-anchor" href="#Implementation">Implementation</a><a id="Implementation-1"></a><a class="docs-heading-anchor-permalink" href="#Implementation" title="Permalink"></a></h2><p>The following code is based on the <a href="https://ferrite-fem.github.io/Ferrite.jl/stable/tutorials/hyperelasticity/">Hyperelasticity</a> tutorial from the Ferrite.jl documentation, with some comments removed for brevity. There are two main modifications:</p><ol><li>Second-order <code>Lagrange</code> shape functions are used for field approximation: <code>ip = Lagrange{RefTriangle,2}()^2</code>.</li><li>Four quadrature points are used to accommodate the second-order shape functions: <code>qr = QuadratureRule{RefTriangle}(4)</code>.</li></ol><pre><code class="language-julia hljs">using Ferrite, Tensors, TimerOutputs, IterativeSolvers
+
+using FerriteMultigrid
+
+struct NeoHooke
+    μ::Float64
+    λ::Float64
+end
+
+function Ψ(C, mp::NeoHooke)
+    μ = mp.μ
+    λ = mp.λ
+    Ic = tr(C)
+    J = sqrt(det(C))
+    return μ / 2 * (Ic - 3 - 2 * log(J)) + λ / 2 * (J - 1)^2
+end
+
+function constitutive_driver(C, mp::NeoHooke)
+    # Compute all derivatives in one function call
+    ∂²Ψ∂C², ∂Ψ∂C = Tensors.hessian(y -&gt; Ψ(y, mp), C, :all)
+    S = 2.0 * ∂Ψ∂C
+    ∂S∂C = 2.0 * ∂²Ψ∂C²
+    return S, ∂S∂C
+end;
+
+function assemble_element!(ke, ge, cell, cv, fv, mp, ue, ΓN)
+    # Reinitialize cell values, and reset output arrays
+    reinit!(cv, cell)
+    fill!(ke, 0.0)
+    fill!(ge, 0.0)
+
+    b = Vec{3}((0.0, -0.5, 0.0)) # Body force
+    tn = 0.1 # Traction (to be scaled with surface normal)
+    ndofs = getnbasefunctions(cv)
+
+    for qp in 1:getnquadpoints(cv)
+        dΩ = getdetJdV(cv, qp)
+        # Compute deformation gradient F and right Cauchy-Green tensor C
+        ∇u = function_gradient(cv, qp, ue)
+        F = one(∇u) + ∇u
+        C = tdot(F) # F&#39; ⋅ F
+        # Compute stress and tangent
+        S, ∂S∂C = constitutive_driver(C, mp)
+        P = F ⋅ S
+        I = one(S)
+        ∂P∂F = otimesu(I, S) + 2 * F ⋅ ∂S∂C ⊡ otimesu(F&#39;, I)
+
+        # Loop over test functions
+        for i in 1:ndofs
+            # Test function and gradient
+            δui = shape_value(cv, qp, i)
+            ∇δui = shape_gradient(cv, qp, i)
+            # Add contribution to the residual from this test function
+            ge[i] += (∇δui ⊡ P - δui ⋅ b) * dΩ
+
+            ∇δui∂P∂F = ∇δui ⊡ ∂P∂F # Hoisted computation
+            for j in 1:ndofs
+                ∇δuj = shape_gradient(cv, qp, j)
+                # Add contribution to the tangent
+                ke[i, j] += (∇δui∂P∂F ⊡ ∇δuj) * dΩ
+            end
+        end
+    end
+
+    # Surface integral for the traction
+    for facet in 1:nfacets(cell)
+        if (cellid(cell), facet) in ΓN
+            reinit!(fv, cell, facet)
+            for q_point in 1:getnquadpoints(fv)
+                t = tn * getnormal(fv, q_point)
+                dΓ = getdetJdV(fv, q_point)
+                for i in 1:ndofs
+                    δui = shape_value(fv, q_point, i)
+                    ge[i] -= (δui ⋅ t) * dΓ
+                end
+            end
+        end
+    end
+    return
+end;
+
+function assemble_global!(K, g, dh, cv, fv, mp, u, ΓN)
+    n = ndofs_per_cell(dh)
+    ke = zeros(n, n)
+    ge = zeros(n)
+
+    # start_assemble resets K and g
+    assembler = start_assemble(K, g)
+
+    # Loop over all cells in the grid
+    for cell in CellIterator(dh)
+        global_dofs = celldofs(cell)
+        ue = u[global_dofs] # element dofs
+        assemble_element!(ke, ge, cell, cv, fv, mp, ue, ΓN)
+        assemble!(assembler, global_dofs, ke, ge)
+    end
+    return
+end;</code></pre><h3 id="Near-Null-Space-(NNS)"><a class="docs-heading-anchor" href="#Near-Null-Space-(NNS)">Near Null Space (NNS)</a><a id="Near-Null-Space-(NNS)-1"></a><a class="docs-heading-anchor-permalink" href="#Near-Null-Space-(NNS)" title="Permalink"></a></h3><p>In multigrid methods for problems with vector-valued unknowns, such as elasticity, the near null space represents the low energy mode or the smooth error that needs to be captured in the coarser grid when using SA-AMG (Smoothed Aggregation Algebraic Multigrid), more on the topic can be found  in <a href="../../references/#schroder2010">Schroder [1]</a>.</p><p>For 3D linear elasticity problems, the rigid body modes are:</p><ol><li>Translation in the x-direction,</li><li>Translation in the y-direction,</li><li>Translation in the z-direction,</li><li>Rotation about the x-axis (i.e., <span>$x_1$</span>): each point (x, y, z) is mapped to (0, -z, y).</li><li>Rotation about the y-axis (i.e., <span>$x_2$</span>): each point (x, y, z) is mapped to (z, 0, -x).</li><li>Rotation about the z-axis (i.e., <span>$x_3$</span>): each point (x, y, z) is mapped to (-y, x, 0).</li></ol><p>The function <code>create_nns</code> constructs the NNS matrix <code>B ∈ ℝ^{n × 6}</code>, where <code>n</code> is the number of degrees of freedom (DOFs) for the case of <code>p</code> = 1 (i.e., linear interpolation), because <code>B</code> is only relevant for AMG.</p><pre><code class="language-julia hljs">function create_nns(dh, fieldname = first(dh.field_names))
+    @assert length(dh.field_names) == 1 &quot;Only a single field is supported for now.&quot;
+
+    coords_flat = zeros(ndofs(dh))
+    apply_analytical!(coords_flat, dh, fieldname, x -&gt; x)
+    coords = reshape(coords_flat, (length(coords_flat) ÷ 3, 3))
+
+    grid = dh.grid
+    B = zeros(Float64, ndofs(dh), 6)
+    B[1:3:end, 1] .= 1 # x - translation
+    B[2:3:end, 2] .= 1 # y - translation
+    B[3:3:end, 3] .= 1 # z - translation
+
+    # rotations
+    x = coords[:, 1]
+    y = coords[:, 2]
+    z = coords[:, 3]
+    # Around x
+    B[2:3:end, 4] .= -z
+    B[3:3:end, 4] .= y
+    # Around y
+    B[1:3:end, 5] .= z
+    B[3:3:end, 5] .= -x
+    # Around z
+    B[1:3:end, 6] .= -y
+    B[2:3:end, 6] .= x
+
+    return B
+end
+
+function _solve()
+    reset_timer!()
+
+    # Generate a grid
+    N = 10
+    L = 1.0
+    left = zero(Vec{3})
+    right = L * ones(Vec{3})
+    grid = generate_grid(Tetrahedron, (N, N, N), left, right)
+
+    # Material parameters
+    E = 10.0
+    ν = 0.3
+    μ = E / (2(1 + ν))
+    λ = (E * ν) / ((1 + ν) * (1 - 2ν))
+    mp = NeoHooke(μ, λ)
+
+    # Finite element base
+    ip = Lagrange{RefTetrahedron, 2}()^3
+    qr = QuadratureRule{RefTetrahedron}(4)
+    qr_facet = FacetQuadratureRule{RefTetrahedron}(3)
+    cv = CellValues(qr, ip)
+    fv = FacetValues(qr_facet, ip)
+
+    # DofHandler
+    dh = DofHandler(grid)
+    add!(dh, :u, ip) # Add a displacement field
+    close!(dh)
+
+    function rotation(X, t)
+        θ = pi / 3 # 60°
+        x, y, z = X
+        return t * Vec{3}(
+            (
+                0.0,
+                L / 2 - y + (y - L / 2) * cos(θ) - (z - L / 2) * sin(θ),
+                L / 2 - z + (y - L / 2) * sin(θ) + (z - L / 2) * cos(θ),
+            )
+        )
+    end
+
+    ch = ConstraintHandler(dh)
+    # Add a homogeneous boundary condition on the &quot;clamped&quot; edge
+    dbc = Dirichlet(:u, getfacetset(grid, &quot;right&quot;), (x, t) -&gt; [0.0, 0.0, 0.0], [1, 2, 3])
+    add!(ch, dbc)
+    dbc = Dirichlet(:u, getfacetset(grid, &quot;left&quot;), (x, t) -&gt; rotation(x, t), [1, 2, 3])
+    add!(ch, dbc)
+    close!(ch)
+    t = 0.5
+    Ferrite.update!(ch, t)
+
+    # Neumann part of the boundary
+    ΓN = union(
+        getfacetset(grid, &quot;top&quot;),
+        getfacetset(grid, &quot;bottom&quot;),
+        getfacetset(grid, &quot;front&quot;),
+        getfacetset(grid, &quot;back&quot;),
+    )
+
+    # Pre-allocation of vectors for the solution and Newton increments
+    _ndofs = ndofs(dh)
+    un = zeros(_ndofs) # previous solution vector
+    u = zeros(_ndofs)
+    Δu = zeros(_ndofs)
+    ΔΔu = zeros(_ndofs)
+    apply!(un, ch)
+
+    # Create sparse matrix and residual vector
+    K = allocate_matrix(dh)
+    g = zeros(_ndofs)
+
+    # FIXME this needs better integration
+    dh_coarse = DofHandler(grid)
+    add!(dh_coarse, :u, Lagrange{RefTetrahedron, 1}()^3) # Add a displacement field
+    close!(dh_coarse)
+    B = create_nns(dh_coarse)
+    config_gal = pmultigrid_config(coarse_strategy = Galerkin())
+    fe_space = FESpace(dh, cv, ch)
+
+    builder = PMultigridPreconBuilder(fe_space, config_gal)
+
+    # Perform Newton iterations
+    newton_itr = -1
+    NEWTON_TOL = 1.0e-8
+    NEWTON_MAXITER = 30
+
+    @info ndofs(dh)
+
+    while true
+        newton_itr += 1
+        # Construct the current guess
+        u .= un .+ Δu
+        # Compute residual and tangent for current guess
+        assemble_global!(K, g, dh, cv, fv, mp, u, ΓN)
+        # Apply boundary conditions
+        apply_zero!(K, g, ch)
+        # Compute the residual norm and compare with tolerance
+        normg = norm(g)
+        if normg &lt; NEWTON_TOL
+            break
+        elseif newton_itr &gt; NEWTON_MAXITER
+            error(&quot;Reached maximum Newton iterations, aborting&quot;)
+        end
+
+        # Compute increment using conjugate gradients
+        fill!(ΔΔu, 0.0)
+        @timeit &quot;Setup preconditioner&quot; Pl = builder(K)[1]
+        @timeit &quot;Galerkin CG&quot; _, ch_gal = IterativeSolvers.cg!(ΔΔu, K, g; Pl, maxiter = 1000, log=true, verbose=false)
+        @info &quot;Galerkin CG iterations: $(ch_gal.iters)&quot;
+        @timeit &quot;Galerkin only&quot; solve(K, g, fe_space, config_gal;B = B, log=true, rtol = 1e-10)
+        fill!(ΔΔu, 0.0)
+        @timeit &quot;CG&quot; _, ch_cg = IterativeSolvers.cg!(ΔΔu, K, g; maxiter = 1000, log=true, verbose=false)
+        @info &quot;CG iterations: $(ch_cg.iters)&quot;
+
+        apply_zero!(ΔΔu, ch)
+        Δu .-= ΔΔu
+    end
+
+    # Save the solution
+    @timeit &quot;export&quot; begin
+        VTKGridFile(&quot;hyperelasticity&quot;, dh) do vtk
+            write_solution(vtk, dh, u)
+        end
+    end
+
+    print_timer(title = &quot;Analysis with $(getncells(grid)) elements&quot;, linechars = :ascii)
+    return u
+end
+
+u = _solve();</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr36"><span class="sgr1">[ Info: </span></span>27783
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Galerkin CG iterations: 30
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>CG iterations: 585
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Galerkin CG iterations: 27
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>CG iterations: 303
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Galerkin CG iterations: 28
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>CG iterations: 307
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Galerkin CG iterations: 26
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>CG iterations: 304
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>Galerkin CG iterations: 27
+<span class="sgr36"><span class="sgr1">[ Info: </span></span>CG iterations: 305
+<span class="sgr1">---------------------------------------------------------------------------------</span>
+<span class="sgr1">  Analysis with 6000 elements  </span>         Time                    Allocations
+                               -----------------------   ------------------------
+       Tot / % measured:            17.1s /  87.6%           2.04GiB /  95.1%
+
+Section                ncalls     time    %tot     avg     alloc    %tot      avg
+---------------------------------------------------------------------------------
+Galerkin only               5    6.99s   46.6%   1.40s   1.04GiB   53.4%   212MiB
+Galerkin CG                 5    3.17s   21.1%   635ms    187MiB    9.4%  37.4MiB
+CG                          5    2.87s   19.1%   573ms   3.31MiB    0.2%   677KiB
+Setup preconditioner        5    1.97s   13.1%   394ms    731MiB   36.8%   146MiB
+export                      1   14.7ms    0.1%  14.7ms   4.98MiB    0.3%  4.98MiB
+<span class="sgr1">---------------------------------------------------------------------------------</span></code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../linear_elasticity/">« Linear Elasticity</a><a class="docs-footer-nextpage" href="../../api-reference/fe/">Finite Element »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.16.1 on <span class="colophon-date" title="Monday 16 February 2026 14:23">Monday 16 February 2026</span>. Using Julia version 1.12.5.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
