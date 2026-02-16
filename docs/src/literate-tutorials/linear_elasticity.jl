@@ -16,7 +16,7 @@
 # 1. Fourth-order `Lagrange` shape functions are used for field approximation: `ip = Lagrange{RefTriangle,4}()^2`.
 # 2. High-order quadrature points are used to accommodate the fourth-order shape functions: `qr = QuadratureRule{RefTriangle}(8)`.
 #
-using Ferrite, FerriteGmsh, FerriteMultigrid#, AlgebraicMultigrid
+using Ferrite, FerriteGmsh, FerriteMultigrid, AlgebraicMultigrid
 using Downloads: download
 using IterativeSolvers
 using TimerOutputs
