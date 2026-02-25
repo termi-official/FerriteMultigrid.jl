@@ -9,7 +9,7 @@ struct PMultigridPreconBuilder{Tk, CS, C}
 end
 
 function PMultigridPreconBuilder(dh::AbstractDofHandler, ch::ConstraintHandler, pgrid_config::PMultigridConfiguration = pmultigrid_config(); cycle = AMG.V(), pcoarse_solver = SmoothedAggregationCoarseSolver(), blocksize = 1, kwargs...)
-    return PMultigridPreconBuilder(dh, ch, pgrid_config, setup_coarse_solver(pcoarse_solvertype; kwargs...), blocksize, kwargs)
+    return PMultigridPreconBuilder(dh, ch, pgrid_config, pcoarse_solver, blocksize, cycle, kwargs)
 end
 
 function (b::PMultigridPreconBuilder)(A::AbstractSparseMatrixCSC, p = nothing)
