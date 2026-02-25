@@ -5,7 +5,7 @@ function poisson(N::Int64, p::Int, nqr::Int)
         getfacetset(grid, "left"),
         getfacetset(grid, "right")
     )
-    return _poisson(sz, p, nqr,Line, RefLine, ∂Ω_f)
+    return _poisson(sz, p, nqr, Line, RefLine, ∂Ω_f)
 end
 
 ## 2D poisson equation with Dirichlet boundary conditions ##
@@ -16,7 +16,7 @@ function poisson(sz::NTuple{2,Int64}, p::Int, nqr::Int)
         getfacetset(grid, "bottom"),
         getfacetset(grid, "top")
     )
-    return _poisson(sz, p, nqr,Quadrilateral, RefQuadrilateral, ∂Ω_f)
+    return _poisson(sz, p, nqr, Quadrilateral, RefQuadrilateral, ∂Ω_f)
 end
 
 
@@ -43,8 +43,7 @@ function _poisson(sz::NTuple{N,Int}, p, nqr, celltype::Type{<:AbstractCell}, ref
     K, f = _assemble_global(cellvalues, K, dh)
     apply!(K, f, ch)
 
-    fe_space = FESpace(dh, cellvalues, ch)
-    return K, f, fe_space
+    return K, f, dh, ch
 end
 
 function _assemble_element!(Ke, fe, cellvalues)

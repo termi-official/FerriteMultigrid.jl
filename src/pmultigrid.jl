@@ -20,15 +20,24 @@ end
 Galerkin() = Galerkin(true)
 
 """
-    Rediscretization{TP <: AbstractPMultigrid} <: AbstractCoarseningStrategy
-This struct represents a coarsening strategy that uses the `assemble` function to obtain the coarse grid operator.
-It is used when the `Rediscretization` strategy is specified in the `pmultigrid_config`. It requires the problem type `TP` to be a subtype of [`AbstractPMultigrid`](@ref).
+    Rediscretization{TI, TS} <: AbstractCoarseningStrategy
+
+Coarsening strategy that re-assembles the operator on the coarse grid using FerriteOperators.
+
+# Fields
+- `integrator::TI` – an `AbstractBilinearIntegrator` (e.g. `DiffusionMultigrid`)
+- `strategy::TS`   – an `AbstractAssemblyStrategy` (default: `SequentialAssemblyStrategy(SequentialCPUDevice())`)
+- `is_sym::Bool`   – whether the operator is symmetric (determines R = Pᵀ vs separate assembly)
 """
-struct Rediscretization{TP <: AbstractPMultigrid} <: AbstractCoarseningStrategy
-    problem::TP
+struct Rediscretization{TI <: AbstractBilinearIntegrator, TS <: AbstractAssemblyStrategy} <: AbstractCoarseningStrategy
+    integrator::TI
+    strategy::TS
     is_sym::Bool
 end
-Rediscretization(problem) = Rediscretization(problem, true)
+Rediscretization(integrator::AbstractBilinearIntegrator) =
+    Rediscretization(integrator, SequentialAssemblyStrategy(SequentialCPUDevice()), true)
+Rediscretization(integrator::AbstractBilinearIntegrator, is_sym::Bool) =
+    Rediscretization(integrator, SequentialAssemblyStrategy(SequentialCPUDevice()), is_sym)
 
 ## defines how we project from fine to coarse grid
 abstract type AbstractProjectionStrategy end
@@ -70,7 +79,8 @@ pmultigrid_config(;coarse_strategy = Galerkin(), proj_strategy = DirectProjectio
 
 function pmultigrid(
     A::TA,
-    fe_space::FESpace,
+    dh::AbstractDofHandler,
+    ch::ConstraintHandler,
     pgrid_config::PMultigridConfiguration,
     pcoarse_solver, 
     ::Type{Val{bs}} = Val{1};
@@ -85,9 +95,9 @@ function pmultigrid(
     w = MultiLevelWorkspace(Val{bs}, eltype(A))
     residual!(w, size(A, 1))
 
-    degree = fe_space |> order
-    fespaces = Vector{FESpace}()
-    push!(fespaces, fe_space)
+    degree = order(dh)
+    dhs = [dh]
+    chs = [ch]
 
     ps = pgrid_config.proj_strategy
     cs = pgrid_config.coarse_strategy
@@ -97,11 +107,13 @@ function pmultigrid(
         # reduce the polynomial order
         degree = degree - step > 1 ? degree - step : 1
 
-        fine_fespace = fespaces[end]
-        @timeit_debug "coarsen order" coarse_fespace = coarsen_order(fine_fespace, degree)
-        push!(fespaces, coarse_fespace)
+        fine_dh = dhs[end]
+        fine_ch = chs[end]
+        @timeit_debug "coarsen order" coarse_dh, coarse_ch = coarsen_order(fine_dh, fine_ch, degree)
+        push!(dhs, coarse_dh)
+        push!(chs, coarse_ch)
 
-        @timeit_debug "extend_hierarchy!" A = extend_hierarchy!(levels, fine_fespace, coarse_fespace, A, cs, u, p)
+        @timeit_debug "extend_hierarchy!" A = extend_hierarchy!(levels, fine_dh, fine_ch, coarse_dh, coarse_ch, A, cs, u, p)
 
         coarse_x!(w, size(A, 1))
         coarse_b!(w, size(A, 1))
@@ -111,22 +123,23 @@ function pmultigrid(
     return MultiLevel(levels, A, coarse_solver, presmoother, postsmoother, w)
 end
 
-function extend_hierarchy!(levels, fine_fespace::FESpace, coarse_fespace::FESpace, A, cs::Galerkin, u, p)
-    P = @timeit_debug "build prolongator" build_prolongator(fine_fespace, coarse_fespace)
-    R = @timeit_debug "build restriction" build_restriction(coarse_fespace, fine_fespace, P, cs.is_sym)
+function extend_hierarchy!(levels, fine_dh, fine_ch, coarse_dh, coarse_ch, A, cs::Galerkin, u, p)
+    P = @timeit_debug "build prolongator" build_prolongator(fine_dh, coarse_dh)
+    R = @timeit_debug "build restriction" build_restriction(coarse_dh, fine_dh, P, cs.is_sym)
     push!(levels, Level(A, P, R))
     RAP = @timeit_debug "RAP" R * A * P # Galerkin projection
     return RAP
 end
 
-function extend_hierarchy!(levels, fine_fespace::FESpace, coarse_fespace::FESpace, A, cs::Rediscretization, u, p)
-    P = build_prolongator(fine_fespace, coarse_fespace)
-    R = build_restriction(coarse_fespace, fine_fespace, P, cs.is_sym)
+function extend_hierarchy!(levels, fine_dh, fine_ch, coarse_dh, coarse_ch, A, cs::Rediscretization, u, p)
+    P = build_prolongator(fine_dh, coarse_dh)
+    R = build_restriction(coarse_dh, fine_dh, P, cs.is_sym)
     push!(levels, Level(A, P, R))
 
-    problem = cs.problem
-    # TODO use FerriteOperators
-    A = assemble(problem, coarse_fespace, u, p)
+    op = @timeit_debug "setup coarse operator" setup_operator(cs.strategy, cs.integrator, coarse_dh)
+    @timeit_debug "assemble coarse operator" update_operator!(op, p)
+    apply!(op.A, coarse_ch)
+    A = op.A
     return A
 end
 
@@ -137,4 +150,5 @@ function _calculate_step(ps::StepProjection, p::Int)
 end
 
 _calculate_step(::DirectProjection, fine_p::Int) = fine_p - 1
+
 

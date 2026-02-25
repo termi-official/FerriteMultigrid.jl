@@ -29,6 +29,20 @@ import AlgebraicMultigrid:
     _solve,
     MultiLevelWorkspace
 
+using FerriteOperators
+import FerriteOperators:
+    AbstractBilinearIntegrator, AbstractVolumetricElementCache,
+    AbstractAssemblyStrategy,
+    setup_operator, update_operator!,
+    setup_element_cache, assemble_element!,
+    setup_transfer_operator,
+    MassProlongatorIntegrator,
+    SameGridTransferCellIterator, NestedGridTransferCellIterator,
+    getrowdofs, getcolumndofs,
+    QuadratureRuleCollection, getquadraturerule,
+    SequentialAssemblyStrategy, SequentialCPUDevice
+import Ferrite: get_grid
+
 include("fe.jl")
 include("multigrid_problems.jl")
 include("prolongator.jl")
@@ -36,11 +50,10 @@ include("pmultigrid.jl")
 include("multilevel.jl")
 include("gallery.jl")
 include("precs.jl")
+include("geometric_multigrid.jl")
 
 export 
-    FESpace,
     AbstractPMultigrid,
-    assemble,
     DiffusionMultigrid, 
     LinearElasticityMultigrid,
     ConstantCoefficient, 
@@ -54,5 +67,9 @@ export
     Pinv,
     PMultigridPreconBuilder,
     AbstractCoefficient,
-    solve
+    solve,
+    # Geometric multigrid
+    NestedGrid1D,
+    build_geometric_prolongator_1d,
+    gmultigrid
 end

@@ -44,20 +44,14 @@ end
     dh_fine = DofHandler(grid)
     add!(dh_fine, :u, ip_fine)
     close!(dh_fine)
-    ch_fine = ConstraintHandler(dh_fine)
-    close!(ch_fine)
-    fine_fespace = FESpace(dh_fine, cv_fine,ch_fine)
 
     # coarse space
     ip_coarse = Lagrange{RefLine,1}()
-    qr_coarse = QuadratureRule{RefLine}(3) # in current implementation, we use same quadrature rule
+    qr_coarse = QuadratureRule{RefLine}(3) # same quadrature rule
     cv_coarse = CellValues(qr_coarse, ip_coarse)
     dh_coarse = DofHandler(grid)
     add!(dh_coarse, :u, ip_coarse)
     close!(dh_coarse)
-    ch_coarse = ConstraintHandler(dh_coarse)
-    close!(ch_coarse)
-    coarse_fespace = FESpace(dh_coarse, cv_coarse, ch_coarse)
 
     # test element prolongator
     Pe = zeros(getnbasefunctions(cv_fine), getnbasefunctions(cv_coarse))
@@ -76,7 +70,7 @@ end
 
 
     # test assembled prolongator
-    P = build_prolongator(fine_fespace, coarse_fespace)
+    P = build_prolongator(dh_fine, dh_coarse)
     # Prolongator
     I = [1, 2, 3, 3, 4, 5, 5, 6, 7, 7];
     J = [1, 2, 1, 2, 3, 2, 3, 4, 3, 4];

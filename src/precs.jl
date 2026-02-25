@@ -1,5 +1,6 @@
 struct PMultigridPreconBuilder{Tk, CS, C}
-    fe_space::FESpace
+    dh::AbstractDofHandler
+    ch::ConstraintHandler
     pgrid_config::PMultigridConfiguration
     pcoarse_solver::CS
     blocksize::Int
@@ -7,8 +8,8 @@ struct PMultigridPreconBuilder{Tk, CS, C}
     kwargs::Tk
 end
 
-function PMultigridPreconBuilder(fe_space::FESpace, pgrid_config::PMultigridConfiguration = pmultigrid_config(); cycle = AMG.V(), pcoarse_solver = SmoothedAggregationCoarseSolver(), blocksize = 1, kwargs...)
-    return PMultigridPreconBuilder(fe_space, pgrid_config , pcoarse_solver, blocksize, cycle, kwargs)
+function PMultigridPreconBuilder(dh::AbstractDofHandler, ch::ConstraintHandler, pgrid_config::PMultigridConfiguration = pmultigrid_config(); cycle = AMG.V(), pcoarse_solver = SmoothedAggregationCoarseSolver(), blocksize = 1, kwargs...)
+    return PMultigridPreconBuilder(dh, ch, pgrid_config, setup_coarse_solver(pcoarse_solvertype; kwargs...), blocksize, kwargs)
 end
 
 function (b::PMultigridPreconBuilder)(A::AbstractSparseMatrixCSC, p = nothing)
@@ -16,6 +17,6 @@ function (b::PMultigridPreconBuilder)(A::AbstractSparseMatrixCSC, p = nothing)
 end
 
 function (b::PMultigridPreconBuilder)(A::SparseMatrixCSC, p = nothing)
-    ml = @timeit_debug "pmultigrid hierarchy" pmultigrid(A, b.fe_space, b.pgrid_config, b.pcoarse_solver, Val{b.blocksize}; p, b.kwargs...)
-    return (aspreconditioner(ml, b.cycle), I)
+    ml = @timeit_debug "pmultigrid hierarchy" pmultigrid(A, b.dh, b.ch, b.pgrid_config, b.pcoarse_solver, Val{b.blocksize}; b.kwargs...)
+    return (aspreconditioner(ml), I)
 end
