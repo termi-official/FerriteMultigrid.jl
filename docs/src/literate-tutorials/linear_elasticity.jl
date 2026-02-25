@@ -16,9 +16,13 @@
 # 1. Fourth-order `Lagrange` shape functions are used for field approximation: `ip = Lagrange{RefTriangle,4}()^2`.
 # 2. High-order quadrature points are used to accommodate the fourth-order shape functions: `qr = QuadratureRule{RefTriangle}(8)`.
 #
-using Ferrite, FerriteGmsh, SparseArrays
+using Ferrite, FerriteGmsh, FerriteMultigrid, AlgebraicMultigrid
 using Downloads: download
-using IterativeSolvers, TimerOutputs
+using IterativeSolvers
+using TimerOutputs
+
+TimerOutputs.enable_debug_timings(AlgebraicMultigrid)
+TimerOutputs.enable_debug_timings(FerriteMultigrid)
 
 Emod = 200.0e3 # Young's modulus [MPa]
 ν = 0.3        # Poisson's ratio [-]
@@ -188,7 +192,7 @@ B = create_nns(dh_coarse)
 # !!! danger
 #     Since NNS matrix is only relevant for AMG, and it is not used in the p-multigrid solver, therefore, `B` has to provided using linear field approximation (i.e., `p = 1`) when using AMG as the coarse solver, otherwise (e.g., using `Pinv` as the coarse solver), then we don't have to provide it.
 
-# Construct the finite element space $\mathcal{V}_{h,p = 2}$
+# Construct the finite element space $\mathcal{V}_{h,p = 4}$
 fe_space = FESpace(dh, cellvalues, ch)
 
 
@@ -196,23 +200,25 @@ fe_space = FESpace(dh, cellvalues, ch)
 
 reset_timer!()
 
+pcoarse_solver = SmoothedAggregationCoarseSolver(; B)
+
 # #### 0. CG as baseline
 @timeit "CG" x_cg = IterativeSolvers.cg(A, b; maxiter = 1000, verbose=false)
 
 # #### 1. Galerkin Coarsening Strategy
 config_gal = pmultigrid_config(coarse_strategy = Galerkin())
-@timeit "Galerkin only" x_gal, res_gal = solve(A, b,fe_space, config_gal;B = B, log=true, rtol = 1e-10)
+@timeit "Galerkin only" x_gal, res_gal = FerriteMultigrid.solve(A, b,fe_space, config_gal; pcoarse_solver, verbose=false, log=true, rtol = 1e-10)
 
-builder_gal = PMultigridPreconBuilder(fe_space, config_gal)
+builder_gal = PMultigridPreconBuilder(fe_space, config_gal; pcoarse_solver)
 @timeit "Build preconditioner" Pl_gal = builder_gal(A)[1]
 @timeit "Galerkin CG" IterativeSolvers.cg(A, b; Pl = Pl_gal, maxiter = 1000, verbose=false)
 
 # #### 2. Rediscretization Coarsening Strategy
 ## Rediscretization Coarsening Strategy
 config_red = pmultigrid_config(coarse_strategy = Rediscretization(LinearElasticityMultigrid(C)))
-@timeit "Rediscretization only" x_red, res_red = solve(A, b, fe_space, config_red; B = B, log=true, rtol = 1e-10)
+@timeit "Rediscretization only" x_red, res_red = solve(A, b, fe_space, config_red; pcoarse_solver, log=true, rtol = 1e-10)
 
-builder_red = PMultigridPreconBuilder(fe_space, config_red)
+builder_red = PMultigridPreconBuilder(fe_space, config_red; pcoarse_solver)
 @timeit "Build preconditioner" Pl_red = builder_red(A)[1]
 @timeit "Rediscretization CG" IterativeSolvers.cg(A, b; Pl = Pl_red, maxiter = 1000, verbose=false)
 

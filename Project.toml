@@ -15,7 +15,7 @@ SparseArrays = "2f01184e-e22b-5df5-ae63-d93ebab69eaf"
 TimerOutputs = "a759f4b9-e2f1-59dc-863e-4aeb61b1ea8f"
 
 [compat]
-AlgebraicMultigrid = "1.1.0"
+AlgebraicMultigrid = "1.2"
 CommonSolve = "0.2.4"
 Ferrite = "1"
 FerriteGmsh = "1.2.1"

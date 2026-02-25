@@ -73,12 +73,13 @@ function pmultigrid(
     fe_space::FESpace,
     pgrid_config::PMultigridConfiguration,
     pcoarse_solver, 
+    ::Type{Val{bs}} = Val{1};
     u = nothing,
     p = nothing,
-    ::Type{Val{bs}} = Val{1};
     presmoother = GaussSeidel(),
     postsmoother = GaussSeidel(),
-    kwargs...) where {T,V,bs,TA<:SparseMatrixCSC{T,V}}
+    kwargs...,
+    ) where {T,V,bs,TA<:SparseMatrixCSC{T,V}}
 
     levels = Vector{Level{TA,TA,Adjoint{T,TA}}}()
     w = MultiLevelWorkspace(Val{bs}, eltype(A))
@@ -97,10 +98,10 @@ function pmultigrid(
         degree = degree - step > 1 ? degree - step : 1
 
         fine_fespace = fespaces[end]
-        coarse_fespace = coarsen_order(fine_fespace, degree)
+        @timeit_debug "coarsen order" coarse_fespace = coarsen_order(fine_fespace, degree)
         push!(fespaces, coarse_fespace)
 
-        A = extend_hierarchy!(levels, fine_fespace, coarse_fespace, A, cs, u, p)
+        @timeit_debug "extend_hierarchy!" A = extend_hierarchy!(levels, fine_fespace, coarse_fespace, A, cs, u, p)
 
         coarse_x!(w, size(A, 1))
         coarse_b!(w, size(A, 1))
@@ -114,9 +115,8 @@ function extend_hierarchy!(levels, fine_fespace::FESpace, coarse_fespace::FESpac
     P = @timeit_debug "build prolongator" build_prolongator(fine_fespace, coarse_fespace)
     R = @timeit_debug "build restriction" build_restriction(coarse_fespace, fine_fespace, P, cs.is_sym)
     push!(levels, Level(A, P, R))
-    ## Galerkin projection: A_coarse = R * A * P
-    A = @timeit_debug "R * A * P" R * A * P
-    return A
+    RAP = @timeit_debug "RAP" R * A * P # Galerkin projection
+    return RAP
 end
 
 function extend_hierarchy!(levels, fine_fespace::FESpace, coarse_fespace::FESpace, A, cs::Rediscretization, u, p)
