@@ -16,6 +16,9 @@ using Ferrite, Tensors, TimerOutputs, IterativeSolvers
 
 using FerriteMultigrid
 
+TimerOutputs.enable_debug_timings(AlgebraicMultigrid)
+TimerOutputs.enable_debug_timings(FerriteMultigrid)
+
 struct NeoHooke
     μ::Float64
     λ::Float64
@@ -158,11 +161,10 @@ function create_nns(dh, fieldname = first(dh.field_names))
     return B
 end
 
-function _solve()
+function _solve(N = 10)
     reset_timer!()
 
     ## Generate a grid
-    N = 10
     L = 1.0
     left = zero(Vec{3})
     right = L * ones(Vec{3})
@@ -236,8 +238,8 @@ function _solve()
     B = create_nns(dh_coarse)
     config_gal = pmultigrid_config(coarse_strategy = Galerkin())
     fe_space = FESpace(dh, cv, ch)
-
-    builder = PMultigridPreconBuilder(fe_space, config_gal)
+    pcoarse_solver = SmoothedAggregationCoarseSolver(; B)
+    builder = PMultigridPreconBuilder(fe_space, config_gal; pcoarse_solver)
 
     ## Perform Newton iterations
     newton_itr = -1
@@ -265,15 +267,17 @@ function _solve()
         ## Compute increment using conjugate gradients
         fill!(ΔΔu, 0.0)
         @timeit "Setup preconditioner" Pl = builder(K)[1]
-        @timeit "Galerkin CG" _, ch_gal = IterativeSolvers.cg!(ΔΔu, K, g; Pl, maxiter = 1000, log=true, verbose=false)
-        @info "Galerkin CG iterations: $(ch_gal.iters)"
-        @timeit "Galerkin only" solve(K, g, fe_space, config_gal;B = B, log=true, rtol = 1e-10)
+        @timeit "Galerkin CG" IterativeSolvers.cg!(ΔΔu, K, g; Pl, maxiter = 100, verbose=false)
         fill!(ΔΔu, 0.0)
-        @timeit "CG" _, ch_cg = IterativeSolvers.cg!(ΔΔu, K, g; maxiter = 1000, log=true, verbose=false)
-        @info "CG iterations: $(ch_cg.iters)"
+        @timeit "Galerkin GMRES" IterativeSolvers.gmres!(ΔΔu, K, g; Pl, maxiter = 100, verbose=false)
+        fill!(ΔΔu, 0.0)
+        @timeit "CG" IterativeSolvers.cg!(ΔΔu, K, g; maxiter = 1000, verbose=false)
+        fill!(ΔΔu, 0.0)
+        @timeit "GMRES" IterativeSolvers.gmres!(ΔΔu, K, g; maxiter = 1000, verbose=false)
 
         apply_zero!(ΔΔu, ch)
         Δu .-= ΔΔu
+        break
     end
 
     ## Save the solution
