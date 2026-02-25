@@ -201,20 +201,20 @@ pcoarse_solver = SmoothedAggregationCoarseSolver(; B)
 
 # #### 1. Galerkin Coarsening Strategy
 config_gal = pmultigrid_config(coarse_strategy = Galerkin())
-@timeit "Galerkin only" x_gal, res_gal = solve(A, b, dh, ch, config_gal; pcoarse_solver, log=true, rtol = 1e-10)
+@timeit "Galerkin only" x_gal, res_gal = solve(A, b, dh, ch, config_gal; pcoarse_solver, log=true, maxiter = 1000, rtol = 1e-10)
 
-builder_gal = PMultigridPreconBuilder(dh, ch, config_gal)
+builder_gal = PMultigridPreconBuilder(dh, ch, config_gal; pcoarse_solver)
 @timeit "Build preconditioner" Pl_gal = builder_gal(A)[1]
-@timeit "Galerkin CG" IterativeSolvers.cg(A, b; Pl = Pl_gal, maxiter = 1000, verbose=false)
+@timeit "Galerkin CG" x_gcg, res_gcg = IterativeSolvers.cg(A, b; Pl = Pl_gal, maxiter = 1000, log=true, verbose=false)
 
 # #### 2. Rediscretization Coarsening Strategy
 ## Rediscretization Coarsening Strategy
 config_red = pmultigrid_config(coarse_strategy = Rediscretization(LinearElasticityMultigrid(C)))
-@timeit "Rediscretization only" x_red, res_red = solve(A, b, dh, ch, config_red; pcoarse_solver, log=true, rtol = 1e-10)
+@timeit "Rediscretization only" x_red, res_red = solve(A, b, dh, ch, config_red; pcoarse_solver, log=true, maxiter = 1000, rtol = 1e-10)
 
-builder_red = PMultigridPreconBuilder(dh, ch, config_red)
+builder_red = PMultigridPreconBuilder(dh, ch, config_red; pcoarse_solver)
 @timeit "Build preconditioner" Pl_red = builder_red(A)[1]
-@timeit "Rediscretization CG" IterativeSolvers.cg(A, b; Pl = Pl_red, maxiter = 1000, verbose=false)
+@timeit "Rediscretization CG" x_rcg, res_rcg = IterativeSolvers.cg(A, b; Pl = Pl_red, maxiter = 1000, log=true, verbose=false)
 
 print_timer(title = "Analysis with $(getncells(dh.grid)) elements", linechars = :ascii)
 
@@ -223,8 +223,12 @@ using Test
 @testset "Linear Elasticity Example" begin
     println("Final residual with Galerkin coarsening: ", res_gal[end])
     @test A * x_gal ≈ b atol=1e-4
+    println("Final residual with Galerkin CG: ", res_gcg.data[:resnorm][end])
+    @test A * x_gcg ≈ b atol=1e-4
     println("Final residual with Rediscretization coarsening: ", res_red[end])
     @test A * x_red ≈ b atol=1e-4
+    println("Final residual with Rediscretization coarsening: ", res_rcg.data[:resnorm][end])
+    @test A * x_rcg ≈ b atol=1e-4
 end
 
 
