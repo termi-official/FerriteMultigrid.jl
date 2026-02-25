@@ -161,7 +161,7 @@ function create_nns(dh, fieldname = first(dh.field_names))
     return B
 end
 
-function _solve(N = 10)
+function _solve(N = 5)
     reset_timer!()
 
     ## Generate a grid

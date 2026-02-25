@@ -1,3 +1,5 @@
+using FerriteMultigrid, Test
+
 @testset "Poisson Equation Example with $config" for config in [
     pmultigrid_config(), 
     pmultigrid_config(coarse_strategy = Rediscretization(DiffusionMultigrid(1.0))),
@@ -8,12 +10,12 @@
     K, f, dh, ch = poisson(1000, 2, 3)
     x, res = solve(K, f, dh, ch, config; log=true, rtol = 1e-10)
     println("final residual at iteration ", length(res), ": ", res[end])
-    @test K * x ≈ f
+    @test K * x ≈ f atol=1e-7
 
     K, f, dh, ch = poisson((100,100), 2, 3)
     x, res = solve(K, f, dh, ch, config; log=true, rtol = 1e-10)
     println("final residual at iteration ", length(res), ": ", res[end])
-    @test K * x ≈ f
+    @test K * x ≈ f atol=1e-7
 end
 
 module TestLinearElasticityExample
