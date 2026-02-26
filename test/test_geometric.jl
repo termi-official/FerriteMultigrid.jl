@@ -3,87 +3,7 @@
 using FerriteMultigrid, Ferrite, Test, SparseArrays
 import LinearAlgebra: norm, det
 import AlgebraicMultigrid as AMG
-
-# ─────────────────────────────────────────────────────────────────────────────
-# Helper: assemble 1D Poisson problem on an arbitrary grid
-# ─────────────────────────────────────────────────────────────────────────────
-
-function _make_1d_dh_ch(grid, order)
-    dh = DofHandler(grid)
-    add!(dh, :u, Lagrange{RefLine, order}())
-    close!(dh)
-    ch = ConstraintHandler(dh)
-    add!(ch, Dirichlet(:u, union(getfacetset(grid, "left"), getfacetset(grid, "right")), (x, t) -> 0.0))
-    close!(ch)
-    return dh, ch
-end
-
-function _assemble_poisson(dh, ch, order)
-    qr = QuadratureRule{RefLine}(order + 1)
-    ip = Lagrange{RefLine, order}()
-    cv = CellValues(qr, ip)
-    n  = getnbasefunctions(cv)
-    K  = allocate_matrix(dh)
-    f  = zeros(ndofs(dh))
-    asm = start_assemble(K, f)
-    Ke  = zeros(n, n); fe = zeros(n)
-    for cell in CellIterator(dh)
-        reinit!(cv, cell)
-        fill!(Ke, 0.0); fill!(fe, 0.0)
-        for q in 1:getnquadpoints(cv)
-            dΩ = getdetJdV(cv, q)
-            for i in 1:n
-                fe[i] += shape_value(cv, q, i) * dΩ
-                for j in 1:n
-                    Ke[i,j] += shape_gradient(cv, q, i) ⋅ shape_gradient(cv, q, j) * dΩ
-                end
-            end
-        end
-        assemble!(asm, celldofs(cell), Ke, fe)
-    end
-    apply!(K, f, ch)
-    return K, f
-end
-
-function _make_2d_quad_dh_ch(grid, order)
-    dh = DofHandler(grid)
-    add!(dh, :u, Lagrange{RefQuadrilateral, order}())
-    close!(dh)
-    ch = ConstraintHandler(dh)
-    ∂Ω = union(getfacetset(grid, "left"), getfacetset(grid, "right"),
-               getfacetset(grid, "bottom"), getfacetset(grid, "top"))
-    add!(ch, Dirichlet(:u, ∂Ω, (x, t) -> 0.0))
-    close!(ch)
-    return dh, ch
-end
-
-function _assemble_poisson_2d(dh, ch, order)
-    qr = QuadratureRule{RefQuadrilateral}(order + 1)
-    ip = Lagrange{RefQuadrilateral, order}()
-    cv = CellValues(qr, ip)
-    n  = getnbasefunctions(cv)
-    K  = allocate_matrix(dh)
-    f  = zeros(ndofs(dh))
-    asm = start_assemble(K, f)
-    Ke  = zeros(n, n); fe = zeros(n)
-    for cell in CellIterator(dh)
-        reinit!(cv, cell)
-        fill!(Ke, 0.0); fill!(fe, 0.0)
-        for q in 1:getnquadpoints(cv)
-            dΩ = getdetJdV(cv, q)
-            for i in 1:n
-                fe[i] += shape_value(cv, q, i) * dΩ
-                for j in 1:n
-                    Ke[i,j] += shape_gradient(cv, q, i) ⋅ shape_gradient(cv, q, j) * dΩ
-                end
-            end
-        end
-        assemble!(asm, celldofs(cell), Ke, fe)
-    end
-    apply!(K, f, ch)
-    return K, f
-end
-
+import FerriteMultigrid: assemble_poisson
 
 # ─────────────────────────────────────────────────────────────────────────────
 # uniform_refinement tests
@@ -254,7 +174,7 @@ end
         union(getfacetset(dh.grid, "left"), getfacetset(dh.grid, "right")), (x, t) -> 0.0))
     close!(chh)
 
-    K, f = _assemble_poisson(dhh[end], chh[end], 1)
+    K, f = assemble_poisson(dhh[end], chh[end])
     config = gmultigrid_config()
 
     ml = gmultigrid(K, gh, dhh, chh, config, SmoothedAggregationCoarseSolver())
@@ -276,7 +196,7 @@ end
         union(getfacetset(dh.grid, "left"), getfacetset(dh.grid, "right")), (x, t) -> 0.0))
     close!(chh)
 
-    K, f = _assemble_poisson(dhh[end], chh[end], 1)
+    K, f = assemble_poisson(dhh[end], chh[end])
     config = gmultigrid_config(coarse_strategy = Rediscretization(DiffusionMultigrid(1.0)))
 
     ml = gmultigrid(K, gh, dhh, chh, config, SmoothedAggregationCoarseSolver())
@@ -298,7 +218,7 @@ end
         union(getfacetset(dh.grid, "left"), getfacetset(dh.grid, "right")), (x, t) -> 0.0))
     close!(chh)
 
-    K, f = _assemble_poisson(dhh[end], chh[end], 1)
+    K, f = assemble_poisson(dhh[end], chh[end])
     config = gmultigrid_config()
 
     ml = gmultigrid(K, gh, dhh, chh, config, SmoothedAggregationCoarseSolver())
@@ -322,7 +242,7 @@ end
     end)
     close!(chh)
 
-    K, f = _assemble_poisson_2d(dhh[end], chh[end], 1)
+    K, f = assemble_poisson(dhh[end], chh[end])
     config = gmultigrid_config()
 
     ml = gmultigrid(K, gh, dhh, chh, config, SmoothedAggregationCoarseSolver())
@@ -349,39 +269,6 @@ function _add_subdomain_cellsets!(grid, split_x = 0.0)
     addcellset!(grid, "right_domain", right)
 end
 
-## Assemble Poisson on a DofHandler with SubDofHandlers.
-## Iterates over each SubDofHandler and auto-selects the quadrature order from the ip.
-function _assemble_poisson_2d_sdh(dh, ch)
-    K   = allocate_matrix(dh)
-    f   = zeros(ndofs(dh))
-    asm = start_assemble(K, f)
-    for sdh in dh.subdofhandlers
-        ip  = Ferrite.getfieldinterpolation(sdh, :u)
-        qr  = QuadratureRule{RefQuadrilateral}(Ferrite.getorder(ip) + 1)
-        cv  = CellValues(qr, ip)
-        n   = getnbasefunctions(cv)
-        Ke  = zeros(n, n)
-        fe  = zeros(n)
-        for cell in CellIterator(sdh)
-            reinit!(cv, cell)
-            fill!(Ke, 0.0); fill!(fe, 0.0)
-            for q in 1:getnquadpoints(cv)
-                dΩ = getdetJdV(cv, q)
-                for i in 1:n
-                    fe[i] += shape_value(cv, q, i) * dΩ
-                    for j in 1:n
-                        Ke[i,j] += shape_gradient(cv, q, i) ⋅ shape_gradient(cv, q, j) * dΩ
-                    end
-                end
-            end
-            assemble!(asm, celldofs(cell), Ke, fe)
-        end
-    end
-    apply!(K, f, ch)
-    return K, f
-end
-
-
 # ─────────────────────────────────────────────────────────────────────────────
 # SubDofHandler tests: polynomial multigrid on a two-subdomain problem
 # ─────────────────────────────────────────────────────────────────────────────
@@ -404,7 +291,7 @@ end
     add!(ch, Dirichlet(:u, ∂Ω, (x, t) -> 0.0))
     close!(ch)
 
-    K, f = _assemble_poisson_2d_sdh(dh, ch)
+    K, f = assemble_poisson(dh, ch)
     config = pmultigrid_config()
 
     ml = pmultigrid(K, dh, ch, config, SmoothedAggregationCoarseSolver())
@@ -430,7 +317,7 @@ end
     add!(ch, Dirichlet(:u, ∂Ω, (x, t) -> 0.0))
     close!(ch)
 
-    K, f = _assemble_poisson_2d_sdh(dh, ch)
+    K, f = assemble_poisson(dh, ch)
     config = pmultigrid_config()
 
     dhh, chh = build_pmg_dofhandler_hierarchy(dh, ch, config)
@@ -479,7 +366,7 @@ end
     @test length(dhh[1].subdofhandlers) == 2
     @test length(dhh[2].subdofhandlers) == 2
 
-    K, f = _assemble_poisson_2d_sdh(dhh[end], chh[end])
+    K, f = assemble_poisson(dhh[end], chh[end])
     config = gmultigrid_config()
 
     ml = gmultigrid(K, gh, dhh, chh, config, SmoothedAggregationCoarseSolver())
