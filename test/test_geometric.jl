@@ -306,9 +306,9 @@ end
     @test K * x ≈ f atol=1e-6
 end
 
-@testset "gmultigrid – 2D Quad Poisson, Galerkin, 1 level" begin
-    coarse_grid = generate_grid(Quadrilateral, (8, 8))
-    gh = GridHierarchy(coarse_grid, 1)
+@testset "gmultigrid – 2D Quad Poisson, Galerkin, 3 level" begin
+    coarse_grid = generate_grid(Quadrilateral, (4, 4))
+    gh = GridHierarchy(coarse_grid, 3)
 
     dhh = DofHandlerHierarchy(gh)
     add!(dhh, :u, Lagrange{RefQuadrilateral, 1}())
