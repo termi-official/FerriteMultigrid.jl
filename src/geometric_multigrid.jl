@@ -651,3 +651,37 @@ function gmultigrid(
     coarse_solver = @timeit_debug "coarse solver setup" pcoarse_solver(cur_A)
     return MultiLevel(levels, cur_A, coarse_solver, presmoother, postsmoother, w)
 end
+
+"""
+    init(A, b, gh, dhh, chh, config; pcoarse_solver, kwargs...) -> MGSolver
+
+Build a geometric multigrid solver and return an [`MGSolver`](@ref).
+"""
+function init(A, b,
+              gh::GridHierarchy,
+              dhh::DofHandlerHierarchy, chh::ConstraintHandlerHierarchy,
+              config::GMultigridConfiguration;
+              pcoarse_solver  = SmoothedAggregationCoarseSolver(),
+              p               = nothing,
+              presmoother     = GaussSeidel(),
+              postsmoother    = GaussSeidel(),
+              kwargs...)
+    ml = gmultigrid(A, gh, dhh, chh, config, pcoarse_solver;
+                    p, presmoother, postsmoother)
+    return MGSolver(ml, b)
+end
+
+"""
+    solve(A, b, gh, dhh, chh, config; pcoarse_solver, kwargs...)
+
+High-level geometric multigrid solve for `Ax = b`.
+`kwargs` are forwarded to the iterative solve (e.g. `maxiter`, `reltol`, `log`).
+"""
+function solve(A::AbstractMatrix, b::AbstractVector,
+               gh::GridHierarchy,
+               dhh::DofHandlerHierarchy, chh::ConstraintHandlerHierarchy,
+               config::GMultigridConfiguration;
+               pcoarse_solver = SmoothedAggregationCoarseSolver(), kwargs...)
+    @timeit_debug "init"   solver = init(A, b, gh, dhh, chh, config; pcoarse_solver, kwargs...)
+    @timeit_debug "solve!" solve!(solver; kwargs...)
+end

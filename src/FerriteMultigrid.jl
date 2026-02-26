@@ -60,15 +60,17 @@ export
     ConstantCoefficient, 
     Galerkin,
     Rediscretization, 
-    DirectProjection, 
-    StepProjection,
     SmoothedAggregationCoarseSolver,
     RugeStubenCoarseSolver,
     pmultigrid_config,
     Pinv,
+    MultigridPreconBuilder,
     PMultigridPreconBuilder,
+    GMultigridCoarseSolver,
+    GMultigridCoarseSolverBuilder,
     AbstractCoefficient,
     solve,
+    init,
     # Handler hierarchies
     DofHandlerHierarchy,
     ConstraintHandlerHierarchy,
@@ -76,7 +78,6 @@ export
     build_pmg_dofhandler_hierarchy,
     # Polynomial multigrid
     pmultigrid,
-    build_geometric_prolongator_1d,
     # Geometric multigrid
     uniform_refinement,
     GridHierarchy,

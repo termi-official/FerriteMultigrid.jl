@@ -39,43 +39,22 @@ Rediscretization(integrator::AbstractBilinearIntegrator) =
 Rediscretization(integrator::AbstractBilinearIntegrator, is_sym::Bool) =
     Rediscretization(integrator, SequentialAssemblyStrategy(SequentialCPUDevice()), is_sym)
 
-## defines how we project from fine to coarse grid
-abstract type AbstractProjectionStrategy end
-
-@doc raw"""
-    DirectProjection <: AbstractProjectionStrategy
-This struct represents a direct projection from $\mathcal{V}_{h,p}$ to $\mathcal{V}_{h,p=1}$. 
-"""
-struct DirectProjection <: AbstractProjectionStrategy end
-    
-@doc raw"""
-    StepProjection <: AbstractProjectionStrategy
-This struct represents a projection from $\mathcal{V}_{h,p}$ to $\mathcal{V}_{h,p-step}$, where `step` is a positive integer.
-It is used to reduce the polynomial order by a fixed step size until `p = 1`.
-"""    
-struct StepProjection <: AbstractProjectionStrategy 
-    step::Int
-    function StepProjection(step::Int)
-        step < 1 && error("Step must be greater than or equal to 1")
-        return new(step)
-    end
-end
+## defines how we project from fine to coarse grid - always one step to p=1
 
 """
-    PMultigridConfiguration{TC<:AbstractCoarseningStrategy, TP<:AbstractProjectionStrategy}
+    PMultigridConfiguration{TC<:AbstractCoarseningStrategy}
 This struct represents the configuration for the polynomial multigrid method.
 """
-struct PMultigridConfiguration{TC<:AbstractCoarseningStrategy, TP<:AbstractProjectionStrategy}
+struct PMultigridConfiguration{TC<:AbstractCoarseningStrategy}
     coarse_strategy::TC # coarsening strategy
-    proj_strategy::TP # projection strategy
 end
 
 
 """
-    pmultigrid_config(;coarse_strategy = Galerkin(), proj_strategy = DirectProjection())
+    pmultigrid_config(;coarse_strategy = Galerkin())
 This function is the main api to instantiate [`PMultigridConfiguration`](@ref).
 """
-pmultigrid_config(;coarse_strategy = Galerkin(), proj_strategy = DirectProjection()) = PMultigridConfiguration(coarse_strategy, proj_strategy)
+pmultigrid_config(;coarse_strategy = Galerkin()) = PMultigridConfiguration(coarse_strategy)
 
 """
     build_pmg_dofhandler_hierarchy(dh, ch, pgrid_config) -> (DofHandlerHierarchy, ConstraintHandlerHierarchy)
@@ -95,15 +74,13 @@ function build_pmg_dofhandler_hierarchy(
         pgrid_config::PMultigridConfiguration,
     )
     degree = order(dh)
-    ps     = pgrid_config.proj_strategy
-    step   = _calculate_step(ps, degree)
 
-    # Build from finest to coarsest
+    # Build from finest to coarsest, always reducing to p=1 in one step per level
     dhs = AbstractDofHandler[dh]
     chs = ConstraintHandler[ch]
 
     while degree > 1
-        degree      = degree - step > 1 ? degree - step : 1
+        degree      = degree - 1
         fine_dh     = dhs[end]
         fine_ch     = chs[end]
         coarse_dh, coarse_ch = coarsen_order(fine_dh, fine_ch, degree)
@@ -209,12 +186,5 @@ function extend_hierarchy!(levels, fine_dh, fine_ch, coarse_dh, coarse_ch, A, cs
     return A
 end
 
-function _calculate_step(ps::StepProjection, p::Int) 
-    step = ps.step
-    step ≥ p && error("Step must be less than the polynomial order $p")
-    return step
-end
-
-_calculate_step(::DirectProjection, fine_p::Int) = fine_p - 1
 
 

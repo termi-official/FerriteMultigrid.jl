@@ -2,7 +2,6 @@
 
 using FerriteMultigrid, Ferrite, Test, SparseArrays
 import LinearAlgebra: norm, det
-import AlgebraicMultigrid as AMG
 import FerriteMultigrid: assemble_poisson
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -177,8 +176,9 @@ end
     K, f = assemble_poisson(dhh[end], chh[end])
     config = gmultigrid_config()
 
-    ml = gmultigrid(K, gh, dhh, chh, config, SmoothedAggregationCoarseSolver())
-    x, res = AMG._solve(ml, f; maxiter = 50, reltol = 1e-10, log = true)
+    x, res = solve(K, f, gh, dhh, chh, config;
+                   pcoarse_solver = SmoothedAggregationCoarseSolver(),
+                   maxiter = 50, reltol = 1e-10, log = true)
     @test K * x ≈ f atol=1e-6
 end
 
@@ -199,8 +199,9 @@ end
     K, f = assemble_poisson(dhh[end], chh[end])
     config = gmultigrid_config(coarse_strategy = Rediscretization(DiffusionMultigrid(1.0)))
 
-    ml = gmultigrid(K, gh, dhh, chh, config, SmoothedAggregationCoarseSolver())
-    x, res = AMG._solve(ml, f; maxiter = 50, reltol = 1e-10, log = true)
+    x, res = solve(K, f, gh, dhh, chh, config;
+                   pcoarse_solver = SmoothedAggregationCoarseSolver(),
+                   maxiter = 50, reltol = 1e-10, log = true)
     @test K * x ≈ f atol=1e-6
 end
 
@@ -221,8 +222,9 @@ end
     K, f = assemble_poisson(dhh[end], chh[end])
     config = gmultigrid_config()
 
-    ml = gmultigrid(K, gh, dhh, chh, config, SmoothedAggregationCoarseSolver())
-    x, res = AMG._solve(ml, f; maxiter = 100, reltol = 1e-10, log = true)
+    x, res = solve(K, f, gh, dhh, chh, config;
+                   pcoarse_solver = SmoothedAggregationCoarseSolver(),
+                   maxiter = 100, reltol = 1e-10, log = true)
     @test K * x ≈ f atol=1e-6
 end
 
@@ -245,8 +247,9 @@ end
     K, f = assemble_poisson(dhh[end], chh[end])
     config = gmultigrid_config()
 
-    ml = gmultigrid(K, gh, dhh, chh, config, SmoothedAggregationCoarseSolver())
-    x, res = AMG._solve(ml, f; maxiter = 100, reltol = 1e-10, log = true)
+    x, res = solve(K, f, gh, dhh, chh, config;
+                   pcoarse_solver = SmoothedAggregationCoarseSolver(),
+                   maxiter = 100, reltol = 1e-10, log = true)
     @test K * x ≈ f atol=1e-6
 end
 
@@ -294,8 +297,9 @@ end
     K, f = assemble_poisson(dh, ch)
     config = pmultigrid_config()
 
-    ml = pmultigrid(K, dh, ch, config, SmoothedAggregationCoarseSolver())
-    x, res = AMG._solve(ml, f; maxiter = 100, reltol = 1e-10, log = true)
+    x, res = solve(K, f, dh, ch, config;
+                   pcoarse_solver = SmoothedAggregationCoarseSolver(),
+                   maxiter = 100, reltol = 1e-10, log = true)
     @test K * x ≈ f atol=1e-6
 end
 
@@ -325,8 +329,9 @@ end
     @test length(dhh[1].subdofhandlers) == 2   # coarsest level preserves 2 subdomains
     @test length(dhh[end].subdofhandlers) == 2  # finest level preserves 2 subdomains
 
-    ml = pmultigrid(K, dhh, chh, config, SmoothedAggregationCoarseSolver())
-    x, res = AMG._solve(ml, f; maxiter = 100, reltol = 1e-10, log = true)
+    x, res = solve(K, f, dhh, chh, config;
+                   pcoarse_solver = SmoothedAggregationCoarseSolver(),
+                   maxiter = 100, reltol = 1e-10, log = true)
     @test K * x ≈ f atol=1e-6
 end
 
@@ -369,7 +374,8 @@ end
     K, f = assemble_poisson(dhh[end], chh[end])
     config = gmultigrid_config()
 
-    ml = gmultigrid(K, gh, dhh, chh, config, SmoothedAggregationCoarseSolver())
-    x, res = AMG._solve(ml, f; maxiter = 100, reltol = 1e-10, log = true)
+    x, res = solve(K, f, gh, dhh, chh, config;
+                   pcoarse_solver = SmoothedAggregationCoarseSolver(),
+                   maxiter = 100, reltol = 1e-10, log = true)
     @test K * x ≈ f atol=1e-6
 end
