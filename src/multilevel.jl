@@ -1,4 +1,4 @@
-struct PMGSolver{T}
+struct MGSolver{T}
     ml::MultiLevel
     b::Vector{T}
 end
@@ -51,32 +51,52 @@ function (amg::AMGCoarseSolver)(x::Vector, b::Vector)
     end
 end
 
-"""
-    solve(A::AbstractMatrix, b::Vector, fe_space::FESpace, pgrid_config::PMultigridConfiguration = pmultigrid_config(), pcoarse_solvertype = SmoothedAggregationCoarseSolver, args...; kwargs...)
-This function solves the linear system `Ax = b` using polynomial multigrid methods with a coarse solver of type `pcoarse_solvertype`.
-
-# Arguments
-- `A`: The system matrix.
-- `b`: The right-hand side vector.
-- `fe_space`: See [`FESpace`](@ref) for details on the finite element space.   
-- `pgrid_config`: Configuration for the polynomial multigrid method, see [`PMultigridConfiguration`](@ref) for details.
-- `pcoarse_solvertype`: The type of coarse solver to use (e.g., `SmoothedAggregationCoarseSolver`, `Pinv`).
-- `args...`: Additional arguments for the init and solve.
-
-# Keyword arguments
-- `pcoarse_solver`: The coarse solver for the polynomial multigrid.
-- `kwargs...`: Additional keyword arguments for the init and solve.
-"""
-function solve(A::AbstractMatrix, b::Vector, fe_space::FESpace, pgrid_config::PMultigridConfiguration = pmultigrid_config(), args...; pcoarse_solver = SmoothedAggregationCoarseSolver(), kwargs...)
-    @timeit_debug "init" solver = init(A, b, fe_space, pgrid_config, args...; pcoarse_solver, kwargs...)
-    @timeit_debug "solve!" solve!(solver, args...; kwargs...)
-end
-
-function init(A, b, fine_fespace::FESpace, pgrid_config::PMultigridConfiguration = pmultigrid_config(), args...; pcoarse_solver = SmoothedAggregationCoarseSolver(), kwargs...)
-    ml = pmultigrid(A, fine_fespace, pgrid_config, pcoarse_solver, args...; kwargs...)
-    return PMGSolver(ml, b)
-end
-
-function solve!(solt::PMGSolver, args...; kwargs...)
+function solve!(solt::MGSolver, args...; kwargs...)
     _solve(solt.ml, solt.b, args...; kwargs...)
+end
+
+"""
+    solve(A, b, dh, ch, config; pcoarse_solver, kwargs...)
+    solve(A, b, dhh, chh, config; pcoarse_solver, kwargs...)
+
+Solve `Ax = b` using polynomial multigrid.  Accepts either a single
+`AbstractDofHandler` / `ConstraintHandler` pair (hierarchy built automatically)
+or a pre-built `DofHandlerHierarchy` / `ConstraintHandlerHierarchy`.
+`kwargs` are forwarded to both the multigrid setup and the iterative solve
+(e.g. `maxiter`, `reltol`, `log`).
+"""
+function solve(A::AbstractMatrix, b::AbstractVector,
+               dh::AbstractDofHandler, ch::ConstraintHandler,
+               pgrid_config::PMultigridConfiguration = pmultigrid_config();
+               pcoarse_solver = SmoothedAggregationCoarseSolver(), kwargs...)
+    @timeit_debug "init"   solver = init(A, b, dh, ch, pgrid_config; pcoarse_solver, kwargs...)
+    @timeit_debug "solve!" solve!(solver; kwargs...)
+end
+
+function solve(A::AbstractMatrix, b::AbstractVector,
+               dhh::DofHandlerHierarchy, chh::ConstraintHandlerHierarchy,
+               pgrid_config::PMultigridConfiguration = pmultigrid_config();
+               pcoarse_solver = SmoothedAggregationCoarseSolver(), kwargs...)
+    @timeit_debug "init"   solver = init(A, b, dhh, chh, pgrid_config; pcoarse_solver, kwargs...)
+    @timeit_debug "solve!" solve!(solver; kwargs...)
+end
+
+"""
+    init(A, b, dh, ch, config; pcoarse_solver, kwargs...) -> MGSolver
+    init(A, b, dhh, chh, config; pcoarse_solver, kwargs...) -> MGSolver
+
+Build a polynomial multigrid solver and return an [`MGSolver`](@ref).
+"""
+function init(A, b, dh::AbstractDofHandler, ch::ConstraintHandler,
+              pgrid_config::PMultigridConfiguration = pmultigrid_config();
+              pcoarse_solver = SmoothedAggregationCoarseSolver(), kwargs...)
+    ml = pmultigrid(A, dh, ch, pgrid_config, pcoarse_solver; kwargs...)
+    return MGSolver(ml, b)
+end
+
+function init(A, b, dhh::DofHandlerHierarchy, chh::ConstraintHandlerHierarchy,
+              pgrid_config::PMultigridConfiguration = pmultigrid_config();
+              pcoarse_solver = SmoothedAggregationCoarseSolver(), kwargs...)
+    ml = pmultigrid(A, dhh, chh, pgrid_config, pcoarse_solver; kwargs...)
+    return MGSolver(ml, b)
 end

@@ -8,6 +8,7 @@ AlgebraicMultigrid = "2169fc97-5a83-5252-b627-83903c6c433c"
 CommonSolve = "38540f10-b2f7-11e9-35d8-d573e4eb0ff2"
 Ferrite = "c061ca5d-56c9-439f-9c0e-210fe06d3992"
 FerriteGmsh = "4f95f4f8-b27c-4ae5-9a39-ea55e634e36b"
+FerriteOperators = "27d9367a-5072-424e-9c5f-fe582399bac3"
 LinearAlgebra = "37e2e46d-f89d-539d-b4ee-838fcccc9c8e"
 LinearSolve = "7ed4a6bd-45f5-4d41-b270-4a48e9bafcae"
 Reexport = "189a3867-3050-52da-a836-e630ba90ab69"
@@ -33,6 +34,9 @@ IterativeSolvers = "42fd0dbc-a981-5370-80f2-aaf504508153"
 Tensors = "48a634ad-e948-5137-8d70-aa71f2a747f4"
 Test = "8dfed614-e22c-5e08-85e1-65c5234f0b40"
 TimerOutputs = "a759f4b9-e2f1-59dc-863e-4aeb61b1ea8f"
+
+[sources]
+FerriteOperators = {path="../FerriteOperators.jl"}
 
 [targets]
 test = ["Test", "Tensors", "TimerOutputs", "Downloads", "IterativeSolvers"]

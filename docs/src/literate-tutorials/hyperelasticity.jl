@@ -161,7 +161,7 @@ function create_nns(dh, fieldname = first(dh.field_names))
     return B
 end
 
-function _solve(N = 10)
+function _solve(N = 5)
     reset_timer!()
 
     ## Generate a grid
@@ -237,9 +237,8 @@ function _solve(N = 10)
     close!(dh_coarse)
     B = create_nns(dh_coarse)
     config_gal = pmultigrid_config(coarse_strategy = Galerkin())
-    fe_space = FESpace(dh, cv, ch)
     pcoarse_solver = SmoothedAggregationCoarseSolver(; B)
-    builder = PMultigridPreconBuilder(fe_space, config_gal; pcoarse_solver)
+    builder = PMultigridPreconBuilder(dh, ch, config_gal; pcoarse_solver)
 
     ## Perform Newton iterations
     newton_itr = -1
@@ -267,7 +266,9 @@ function _solve(N = 10)
         ## Compute increment using conjugate gradients
         fill!(ΔΔu, 0.0)
         @timeit "Setup preconditioner" Pl = builder(K)[1]
-        @timeit "Galerkin CG" IterativeSolvers.cg!(ΔΔu, K, g; Pl, maxiter = 100, verbose=false)
+        @timeit "Galerkin CG" _, ch_gal = IterativeSolvers.cg!(ΔΔu, K, g; Pl, maxiter = 100, log=true, verbose=false)
+        @info "Galerkin CG iterations: $(ch_gal.iters)"
+        # @timeit "Galerkin only" solve(K, g, dh, ch, config_gal; B = B, log=true, rtol = 1e-10)
         fill!(ΔΔu, 0.0)
         @timeit "Galerkin GMRES" IterativeSolvers.gmres!(ΔΔu, K, g; Pl, maxiter = 100, verbose=false)
         fill!(ΔΔu, 0.0)

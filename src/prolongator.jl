@@ -1,110 +1,31 @@
-## P_ij = M^{-1}_{ij} ∫ ϕ_i(x) ⋅ ϕc_j(x) dx (ϕc is the coarse basis function)
-function element_prolongator!(
-    Pe::AbstractMatrix,
-    Me::AbstractMatrix,
-    fine_cv::AbstractCellValues,
-    coarse_cv::AbstractCellValues,
-    Pe_buffer::AbstractMatrix,
-)
-    fill!(Pe_buffer, zero(eltype(Pe)))
-    n_fine_basefuncs = getnbasefunctions(fine_cv)
-    n_coarse_basefuncs = getnbasefunctions(coarse_cv)
+"""
+    build_prolongator(fine_dh::DofHandler, coarse_dh::DofHandler)
 
-    for q = 1:getnquadpoints(fine_cv)
-        dΩ = getdetJdV(fine_cv, q)
-        for i = 1:n_fine_basefuncs
-            ϕᵢ = shape_value(fine_cv, q, i)
-            for j = 1:n_coarse_basefuncs
-                ϕⱼ = shape_value(coarse_cv, q, j)
-                Pe_buffer[i, j] += (ϕᵢ ⋅ ϕⱼ) * dΩ
-            end
+Assemble the prolongation matrix P of size `(ndofs(fine_dh) × ndofs(coarse_dh))`.
+
+Uses a `MassProlongatorIntegrator` via the FerriteOperators transfer operator infrastructure.
+For each cell the local prolongator is computed via an element-local L²-projection
+(fine mass matrix inverse times cross-mass matrix), then assembled into the global matrix.
+Rows are normalised by the number of element contributions to handle shared dofs correctly.
+"""
+function build_prolongator(fine_dh::DofHandler, coarse_dh::DofHandler)
+    field_name  = first(Ferrite.getfieldnames(fine_dh))
+    integrator  = MassProlongatorIntegrator(QuadratureRuleCollection(2 * order(fine_dh)), field_name)
+    strategy    = SequentialAssemblyStrategy(SequentialCPUDevice())
+
+    op = @timeit_debug "setup transfer operator" setup_transfer_operator(strategy, integrator, fine_dh, coarse_dh)
+    @timeit_debug "assemble transfer operator" update_operator!(op, nothing)
+
+    # Count how many element contributions each fine dof accumulated, then normalise.
+    row_contrib = zeros(Int, ndofs(fine_dh))
+    for tc in SameGridTransferCellIterator(fine_dh, coarse_dh)
+        for rdof in getrowdofs(tc)
+            row_contrib[rdof] += 1
         end
     end
+    @timeit_debug "row normalization" normalize_rows!(op.P, row_contrib)
 
-    # Invert the mass matrix to get the prolongator
-    _element_mass_matrix!(Me, fine_cv)
-    lu_fact = qr(Me)
-    ldiv!(Pe, lu_fact, Pe_buffer)
-
-    # TODO investigate why this fails
-    # _element_mass_matrix_lumped!(Me, fine_cv)
-    # for i in 1:size(Me, 1)
-    #     Me[i,i] = inv(Me[i,i])
-    # end
-    # mul!(Pe, Me, Pe_buffer)
-
-    return drop_small_entries!(Pe)
-end
-
-
-function drop_small_entries!(A::AbstractMatrix, tol::Float64 = 1e-10)
-    for ij in eachindex(A)
-        if abs(A[ij]) < tol
-            A[ij] = 0.0
-        end
-    end
-    return A
-end
-
-## M_{ij} = ∫ ϕ_i(x) ⋅ ϕ_j(x) dx
-function _element_mass_matrix!(Me::AbstractMatrix, cv::AbstractCellValues)
-    fill!(Me, zero(eltype(Me)))
-    n_basefuncs = getnbasefunctions(cv)
-    for q = 1:getnquadpoints(cv)
-        dΩ = getdetJdV(cv, q)
-        for i = 1:n_basefuncs
-            δu = shape_value(cv, q, i)
-            for j = 1:n_basefuncs
-                u = shape_value(cv, q, j)
-                Me[i, j] += (δu ⋅ u) * dΩ
-            end
-        end
-    end
-    return Me
-end
-
-function _element_mass_matrix_lumped!(Me::AbstractMatrix, cv::AbstractCellValues)
-    fill!(Me, zero(eltype(Me)))
-    n_basefuncs = getnbasefunctions(cv)
-    for q = 1:getnquadpoints(cv)
-        dΩ = getdetJdV(cv, q)
-        for i = 1:n_basefuncs
-            δu = shape_value(cv, q, i)
-            for j = 1:n_basefuncs
-                u = shape_value(cv, q, j)
-                Me[i, i] += (δu ⋅ u) * dΩ
-            end
-        end
-    end
-    return Me
-end
-
-# TODO use FerriteOperators
-function build_prolongator(fine_fespace::FESpace, coarse_fespace::FESpace)
-    fine_ndofs = ndofs(fine_fespace)
-    coarse_ndofs = ndofs(coarse_fespace)
-    P = spzeros(fine_ndofs, coarse_ndofs)
-    row_contrib = zeros(Int, fine_ndofs)
-
-    fine_nbasefuncs = getnbasefunctions(fine_fespace)
-    coarse_nbasefuncs = getnbasefunctions(coarse_fespace)
-    Pe = zeros(fine_nbasefuncs, coarse_nbasefuncs)
-    Pe_buffer = zeros(fine_nbasefuncs, coarse_nbasefuncs)
-    Me = zeros(fine_nbasefuncs, fine_nbasefuncs)
-    @timeit_debug "assembly" for cell in CellIterator(fine_fespace.dh)
-        reinit!(fine_fespace.cv, cell)
-        reinit!(coarse_fespace.cv, cell)
-        element_prolongator!(Pe, Me, fine_fespace.cv, coarse_fespace.cv, Pe_buffer)
-
-        fine_dofs = celldofs(cell)
-        coarse_dofs = celldofs(coarse_fespace.dh, cell.cellid)
-        assemble_prolongator!(P, Pe, fine_dofs, coarse_dofs)
-
-        @. row_contrib[fine_dofs] += 1
-    end
-    @timeit_debug "row normalization" normalize_rows!(P, row_contrib)
-
-    return P
+    return op.P
 end
 
 ## Normalize rows of a CSC sparse matrix by contribution count.
@@ -123,20 +44,11 @@ function normalize_rows!(P::SparseMatrixCSC, row_contrib::Vector{Int})
     return P
 end
 
-function build_restriction(coarse_fespace, fine_fespace, P, is_sym)
+function build_restriction(coarse_dh, fine_dh, P, is_sym)
     if !is_sym
-        return build_prolongator(coarse_fespace, fine_fespace)
+        return build_prolongator(coarse_dh, fine_dh)
     else
         return P'
     end
 end
 
-function assemble_prolongator!(P, Pe, fine_dofs, coarse_dofs)
-    for i = 1:length(fine_dofs)
-        global_i = fine_dofs[i]
-        for j = 1:length(coarse_dofs)
-            global_j = coarse_dofs[j]
-            P[global_i, global_j] += Pe[i, j]
-        end
-    end
-end

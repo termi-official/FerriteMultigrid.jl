@@ -1,41 +1,55 @@
-"""
-    FESpace{DH<:AbstractDofHandler, CV<:AbstractCellValues, CH<:ConstraintHandler}
+## Helpers to query DofHandler metadata ──────────────────────────────────────────────────
 
-A structure that encapsulates the finite element space.
-
-# Fields
-- `dh::DH`: [Degree-of-freedom handler](https://ferrite-fem.github.io/Ferrite.jl/stable/reference/dofhandler/#Degrees-of-freedom) 
-- `cv::CV`: [Cell values](https://ferrite-fem.github.io/Ferrite.jl/stable/reference/fevalues/#Main-types)
-- `ch::CH`: [Constraint handler](https://ferrite-fem.github.io/Ferrite.jl/stable/reference/fevalues/#Main-types).
 """
-struct FESpace{DH<:AbstractDofHandler,CV<:AbstractCellValues,CH<:ConstraintHandler}
-    dh::DH
-    cv::CV
-    ch::CH
+    _first_field_ip(dh)
+
+Return the interpolation of the first field in the first subdomain of `dh`.
+This is a convenience function used when a single-field DofHandler is expected
+(e.g. in the multigrid hierarchy builders).
+"""
+function _first_field_ip(dh::AbstractDofHandler)
+    sdh = dh.subdofhandlers[1]
+    return Ferrite.getfieldinterpolation(sdh, first(Ferrite.getfieldnames(sdh)))
 end
 
-order(fe_space::FESpace) = fe_space.cv.fun_values.ip |> getorder
-interpolation(fe_space::FESpace) = fe_space.cv.fun_values.ip
-quadraturerule(fe_space::FESpace) = fe_space.cv.qr
-Ferrite.ndofs(fe_space::FESpace) = ndofs(fe_space.dh)
-Ferrite.getnbasefunctions(fe_space::FESpace) = getnbasefunctions(fe_space.cv)
+"""
+    order(dh::AbstractDofHandler)
 
-function coarsen_order(fe_space::FESpace, p::Int)
-    dh = fe_space.dh
-    cv = fe_space.cv
-    ch = fe_space.ch
+Return the polynomial order of the interpolation of the first field in `dh`.
+"""
+order(dh::AbstractDofHandler) = getorder(_first_field_ip(dh))
 
-    @assert 1 ≤ p < order(fe_space) "Invalid order $p for coarsening"
+"""
+    interpolation(dh::AbstractDofHandler)
 
-    # FIXME: more robust way to handle this?
-    qr = fe_space |> quadraturerule
-    ip = _new_coarse_ip(fe_space |> interpolation, p)
-    coarse_cv = CellValues(qr, ip)
+Return the interpolation of the first field in `dh`.
+"""
+interpolation(dh::AbstractDofHandler) = _first_field_ip(dh)
+
+## Coarsening ─────────────────────────────────────────────────────────────────────────────
+
+"""
+    coarsen_order(dh::DofHandler, ch::ConstraintHandler, p::Int)
+        -> (coarse_dh::DofHandler, coarse_ch::ConstraintHandler)
+
+Create a coarser DofHandler / ConstraintHandler pair by replacing the polynomial
+interpolation of every field with a version of order `p`.
+
+The returned DofHandler lives on the **same** grid object as `dh`.
+Only Dirichlet boundary conditions are transferred; affine inhomogeneities are not supported.
+"""
+function coarsen_order(dh::DofHandler, ch::ConstraintHandler, p::Int)
+    @assert 1 ≤ p < order(dh) "Invalid coarsening order $p (current order is $(order(dh)))"
+    @assert all(x -> x === nothing, ch.affine_inhomogeneities) "Affine constraints are not supported"
+
     coarse_dh = DofHandler(dh.grid)
-    add!(coarse_dh, dh.field_names |> first, ip) # FIXME: better way to handle this?
+    for sdh in dh.subdofhandlers
+        coarse_sdh = SubDofHandler(coarse_dh, sdh.cellset)
+        for fieldname in Ferrite.getfieldnames(sdh)
+            add!(coarse_sdh, fieldname, _new_coarse_ip(Ferrite.getfieldinterpolation(sdh, fieldname), p))
+        end
+    end
     close!(coarse_dh)
-
-    @assert all(ch.affine_inhomogeneities .== nothing) "Affine constraints are not supported"
 
     coarse_ch = ConstraintHandler(coarse_dh)
     for dbc in ch.dbcs
@@ -43,18 +57,18 @@ function coarsen_order(fe_space::FESpace, p::Int)
     end
     close!(coarse_ch)
 
-    return FESpace(coarse_dh, coarse_cv,coarse_ch)
+    return coarse_dh, coarse_ch
 end
 
 function _new_coarse_ip(ip::ScalarInterpolation, p::Int)
     T = typeof(ip)
-    BasisFunction = T.name.wrapper  #TODO: all basis functions have the same construction structure?
+    BasisFunction = T.name.wrapper
     RefShape = T.parameters[1]
-    return BasisFunction{RefShape,p}()
+    return BasisFunction{RefShape, p}()
 end
 
-# TODO: more robust
 function _new_coarse_ip(::VectorizedInterpolation{vdim, refshape, order, SI}, p::Int) where {vdim, refshape, order, SI <: ScalarInterpolation{refshape, order}}
-    BasisFunction = SI.name.wrapper  #TODO: all basis functions have the same construction structure?
-    return BasisFunction{refshape,p}()^vdim
+    BasisFunction = SI.name.wrapper
+    return BasisFunction{refshape, p}()^vdim
 end
+
