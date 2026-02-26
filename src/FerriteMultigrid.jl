@@ -35,8 +35,8 @@ import FerriteOperators:
     AbstractAssemblyStrategy,
     setup_operator, update_operator!,
     setup_element_cache, assemble_element!,
-    setup_transfer_operator,
-    MassProlongatorIntegrator,
+    setup_transfer_operator, setup_nested_transfer_operator,
+    MassProlongatorIntegrator, NestedMassProlongatorIntegrator,
     SameGridTransferCellIterator, NestedGridTransferCellIterator,
     getrowdofs, getcolumndofs,
     QuadratureRuleCollection, getquadraturerule,
@@ -68,8 +68,14 @@ export
     PMultigridPreconBuilder,
     AbstractCoefficient,
     solve,
-    # Geometric multigrid
+    # Polynomial multigrid
     NestedGrid1D,
     build_geometric_prolongator_1d,
+    # Geometric multigrid
+    uniform_refinement,
+    GridHierarchy,
+    GMultigridConfiguration,
+    gmultigrid_config,
+    build_geometric_prolongator,
     gmultigrid
 end
