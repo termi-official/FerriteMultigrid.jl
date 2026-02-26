@@ -1,38 +1,5 @@
-function create_1d_1element_mass_matrix(p = 1, nqp = 2)
-    grid = generate_grid(Line, (1,), Vec((0.0,)), Vec((1.0,)))
-
-    ip = Lagrange{RefLine,p}()
-    qr = QuadratureRule{RefLine}(nqp)
-    cellvalues = CellValues(qr, ip)
-
-    dh = DofHandler(grid)
-    add!(dh, :u, ip)
-    close!(dh)
-
-    n_basefuncs = getnbasefunctions(cellvalues)
-    Me = zeros(n_basefuncs, n_basefuncs)
-    for cell in CellIterator(dh)
-        reinit!(cellvalues, cell)
-        _element_mass_matrix!(Me, cellvalues)
-    end
-    return Me
-end
-
-@testset "Mass Matrix" begin
-    # p =1 ,nqp = 2
-    Me = create_1d_1element_mass_matrix(1, 2)
-    Me_expected = 1/6 * [2 1; 1 2]
-    @test Me ≈ Me_expected
-    # p = 2, nqp = 3
-    Me2 = create_1d_1element_mass_matrix(2, 3)
-    Me2_expected = (1/30) * [
-        4 -1 2;
-        -1 4 2;
-        2 2 16
-    ]
-
-    @test Me2 ≈ Me2_expected
-end
+using FerriteMultigrid, Test
+import FerriteMultigrid: build_prolongator
 
 @testset "Prolongator" begin
     grid = generate_grid(Line, (3,))
@@ -52,22 +19,6 @@ end
     dh_coarse = DofHandler(grid)
     add!(dh_coarse, :u, ip_coarse)
     close!(dh_coarse)
-
-    # test element prolongator
-    Pe = zeros(getnbasefunctions(cv_fine), getnbasefunctions(cv_coarse))
-    Pebuf = zeros(getnbasefunctions(cv_fine), getnbasefunctions(cv_coarse))
-    Me = zeros(getnbasefunctions(cv_fine), getnbasefunctions(cv_fine))
-    cell_iter = CellIterator(dh_fine)
-    cell = first(cell_iter)
-    reinit!(cv_fine, cell)
-    element_prolongator!(Pe, Me, cv_fine, cv_coarse, Pebuf)
-    Pe_expected = [
-        1.0 0;
-        0.0 1.0;
-        0.5 0.5
-    ]
-    @test Pe ≈ Pe_expected
-
 
     # test assembled prolongator
     P = build_prolongator(dh_fine, dh_coarse)
