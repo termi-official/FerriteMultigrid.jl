@@ -46,6 +46,7 @@ import Ferrite: get_grid
 include("fe.jl")
 include("multigrid_problems.jl")
 include("prolongator.jl")
+include("handler_hierarchy.jl")
 include("pmultigrid.jl")
 include("multilevel.jl")
 include("gallery.jl")
@@ -68,8 +69,13 @@ export
     PMultigridPreconBuilder,
     AbstractCoefficient,
     solve,
+    # Handler hierarchies
+    DofHandlerHierarchy,
+    ConstraintHandlerHierarchy,
+    SubDofHandlerHierarchy,
+    build_pmg_dofhandler_hierarchy,
     # Polynomial multigrid
-    NestedGrid1D,
+    pmultigrid,
     build_geometric_prolongator_1d,
     # Geometric multigrid
     uniform_refinement,

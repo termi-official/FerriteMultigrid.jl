@@ -77,50 +77,116 @@ This function is the main api to instantiate [`PMultigridConfiguration`](@ref).
 """
 pmultigrid_config(;coarse_strategy = Galerkin(), proj_strategy = DirectProjection()) = PMultigridConfiguration(coarse_strategy, proj_strategy)
 
+"""
+    build_pmg_dofhandler_hierarchy(dh, ch, pgrid_config) -> (DofHandlerHierarchy, ConstraintHandlerHierarchy)
+
+Build the full polynomial-order hierarchy for polynomial multigrid starting from the
+fine-grid handler `dh` and constraint handler `ch`, using the projection strategy in
+`pgrid_config`.
+
+Returns a `(DofHandlerHierarchy, ConstraintHandlerHierarchy)` pair where index 1 is the
+coarsest level (order 1) and index `end` is the finest level (`dh` and `ch`).
+
+This is the standalone convenience function that underpins `pmultigrid(A, dh, ch, ...)`.
+"""
+function build_pmg_dofhandler_hierarchy(
+        dh::AbstractDofHandler,
+        ch::ConstraintHandler,
+        pgrid_config::PMultigridConfiguration,
+    )
+    degree = order(dh)
+    ps     = pgrid_config.proj_strategy
+    step   = _calculate_step(ps, degree)
+
+    # Build from finest to coarsest
+    dhs = AbstractDofHandler[dh]
+    chs = ConstraintHandler[ch]
+
+    while degree > 1
+        degree      = degree - step > 1 ? degree - step : 1
+        fine_dh     = dhs[end]
+        fine_ch     = chs[end]
+        coarse_dh, coarse_ch = coarsen_order(fine_dh, fine_ch, degree)
+        push!(dhs, coarse_dh)
+        push!(chs, coarse_ch)
+    end
+
+    # Reverse so that index 1 = coarsest (consistent with GridHierarchy convention)
+    return DofHandlerHierarchy(reverse(dhs)), ConstraintHandlerHierarchy(reverse(chs))
+end
+
+"""
+    pmultigrid(A, dhh, chh, pgrid_config, pcoarse_solver, [Val{bs}]; kwargs...)
+
+Build a polynomial multigrid preconditioner from a pre-built `DofHandlerHierarchy` and
+`ConstraintHandlerHierarchy`.  Index 1 of the hierarchies must be the coarsest level
+and index `end` the finest.
+
+This is the primary dispatch; the convenience overload taking a single `DofHandler` calls
+[`build_pmg_dofhandler_hierarchy`](@ref) and forwards here.
+"""
 function pmultigrid(
     A::TA,
-    dh::AbstractDofHandler,
-    ch::ConstraintHandler,
+    dhh::DofHandlerHierarchy,
+    chh::ConstraintHandlerHierarchy,
     pgrid_config::PMultigridConfiguration,
-    pcoarse_solver, 
+    pcoarse_solver,
     ::Type{Val{bs}} = Val{1};
     u = nothing,
     p = nothing,
-    presmoother = GaussSeidel(),
+    presmoother  = GaussSeidel(),
     postsmoother = GaussSeidel(),
     kwargs...,
     ) where {T,V,bs,TA<:SparseMatrixCSC{T,V}}
+
+    n_levels = length(dhh) - 1
+    @assert n_levels >= 1 "DofHandlerHierarchy must have at least 2 levels"
 
     levels = Vector{Level{TA,TA,Adjoint{T,TA}}}()
     w = MultiLevelWorkspace(Val{bs}, eltype(A))
     residual!(w, size(A, 1))
 
-    degree = order(dh)
-    dhs = [dh]
-    chs = [ch]
+    cs    = pgrid_config.coarse_strategy
+    cur_A = A
 
-    ps = pgrid_config.proj_strategy
-    cs = pgrid_config.coarse_strategy
-    step  = _calculate_step(ps, degree)
+    # Iterate from finest (index end) down to coarsest (index 1)
+    for k in n_levels:-1:1
+        fine_dh   = dhh[k+1]
+        fine_ch   = chh[k+1]
+        coarse_dh = dhh[k]
+        coarse_ch = chh[k]
 
-    while degree > 1
-        # reduce the polynomial order
-        degree = degree - step > 1 ? degree - step : 1
+        @timeit_debug "extend_hierarchy!" cur_A = extend_hierarchy!(
+            levels, fine_dh, fine_ch, coarse_dh, coarse_ch, cur_A, cs, u, p)
 
-        fine_dh = dhs[end]
-        fine_ch = chs[end]
-        @timeit_debug "coarsen order" coarse_dh, coarse_ch = coarsen_order(fine_dh, fine_ch, degree)
-        push!(dhs, coarse_dh)
-        push!(chs, coarse_ch)
-
-        @timeit_debug "extend_hierarchy!" A = extend_hierarchy!(levels, fine_dh, fine_ch, coarse_dh, coarse_ch, A, cs, u, p)
-
-        coarse_x!(w, size(A, 1))
-        coarse_b!(w, size(A, 1))
-        residual!(w, size(A, 1))
+        coarse_x!(w, size(cur_A, 1))
+        coarse_b!(w, size(cur_A, 1))
+        residual!(w, size(cur_A, 1))
     end
-    coarse_solver = @timeit_debug "coarse solver setup" pcoarse_solver(A)
-    return MultiLevel(levels, A, coarse_solver, presmoother, postsmoother, w)
+
+    coarse_solver = @timeit_debug "coarse solver setup" pcoarse_solver(cur_A)
+    return MultiLevel(levels, cur_A, coarse_solver, presmoother, postsmoother, w)
+end
+
+"""
+    pmultigrid(A, dh, ch, pgrid_config, pcoarse_solver, [Val{bs}]; kwargs...)
+
+Convenience dispatch: builds the `DofHandlerHierarchy` / `ConstraintHandlerHierarchy`
+automatically via [`build_pmg_dofhandler_hierarchy`](@ref) and then calls the
+hierarchy-based `pmultigrid`.
+"""
+function pmultigrid(
+    A::TA,
+    dh::AbstractDofHandler,
+    ch::ConstraintHandler,
+    pgrid_config::PMultigridConfiguration,
+    pcoarse_solver,
+    ::Type{Val{bs}} = Val{1};
+    kwargs...,
+    ) where {T,V,bs,TA<:SparseMatrixCSC{T,V}}
+
+    dhh, chh = build_pmg_dofhandler_hierarchy(dh, ch, pgrid_config)
+    return pmultigrid(A, dhh, chh, pgrid_config, pcoarse_solver, Val{bs}; kwargs...)
 end
 
 function extend_hierarchy!(levels, fine_dh, fine_ch, coarse_dh, coarse_ch, A, cs::Galerkin, u, p)

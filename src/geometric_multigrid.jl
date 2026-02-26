@@ -54,7 +54,21 @@ end
 ## Boundary-set propagation                                          ##
 #######################################################################
 
-## Propagate facetsets from the coarse grid to a fine grid.
+## Propagate cellsets: each fine cell belongs to the same named set as its parent coarse cell.
+function _propagate_cellsets(coarse_grid, fine2coarse)
+    coarse_cellsets = Ferrite.getcellsets(coarse_grid)
+    fine_cellsets = Dict{String, Set{Int}}()
+    for (name, coarse_cs) in coarse_cellsets
+        fine_cs = Set{Int}()
+        for (fine_id, coarse_id) in enumerate(fine2coarse)
+            coarse_id ∈ coarse_cs && push!(fine_cs, fine_id)
+        end
+        fine_cellsets[name] = fine_cs
+    end
+    return fine_cellsets
+end
+
+
 ## A fine facet is in the set if all its nodes are "reachable" from the coarse facetset:
 ##   - original coarse corner nodes → in boundary cluster
 ##   - new node → in cluster if ALL its parent nodes are in the cluster
@@ -172,8 +186,10 @@ function uniform_refinement(coarse_grid::Grid{1, Line, T}) where T
 
     fine_facetsets = _propagate_facetsets(coarse_grid, fine_cells, node_parents)
     fine_nodesets  = _propagate_nodesets(coarse_grid, node_parents)
+    fine_cellsets  = _propagate_cellsets(coarse_grid, fine2coarse)
     fine_grid = Grid(fine_cells, fine_nodes;
-                     facetsets = fine_facetsets, nodesets = fine_nodesets)
+                     facetsets = fine_facetsets, nodesets = fine_nodesets,
+                     cellsets = fine_cellsets)
     return fine_grid, fine2coarse, child_ref_coords
 end
 
@@ -217,8 +233,10 @@ function uniform_refinement(coarse_grid::Grid{2, Triangle, T}) where T
 
     fine_facetsets = _propagate_facetsets(coarse_grid, fine_cells, node_parents)
     fine_nodesets  = _propagate_nodesets(coarse_grid, node_parents)
+    fine_cellsets  = _propagate_cellsets(coarse_grid, fine2coarse)
     fine_grid = Grid(fine_cells, fine_nodes;
-                     facetsets = fine_facetsets, nodesets = fine_nodesets)
+                     facetsets = fine_facetsets, nodesets = fine_nodesets,
+                     cellsets = fine_cellsets)
     return fine_grid, fine2coarse, child_ref_coords
 end
 
@@ -269,8 +287,10 @@ function uniform_refinement(coarse_grid::Grid{2, Quadrilateral, T}) where T
 
     fine_facetsets = _propagate_facetsets(coarse_grid, fine_cells, node_parents)
     fine_nodesets  = _propagate_nodesets(coarse_grid, node_parents)
+    fine_cellsets  = _propagate_cellsets(coarse_grid, fine2coarse)
     fine_grid = Grid(fine_cells, fine_nodes;
-                     facetsets = fine_facetsets, nodesets = fine_nodesets)
+                     facetsets = fine_facetsets, nodesets = fine_nodesets,
+                     cellsets = fine_cellsets)
     return fine_grid, fine2coarse, child_ref_coords
 end
 
@@ -328,8 +348,10 @@ function uniform_refinement(coarse_grid::Grid{3, Tetrahedron, T}) where T
 
     fine_facetsets = _propagate_facetsets(coarse_grid, fine_cells, node_parents)
     fine_nodesets  = _propagate_nodesets(coarse_grid, node_parents)
+    fine_cellsets  = _propagate_cellsets(coarse_grid, fine2coarse)
     fine_grid = Grid(fine_cells, fine_nodes;
-                     facetsets = fine_facetsets, nodesets = fine_nodesets)
+                     facetsets = fine_facetsets, nodesets = fine_nodesets,
+                     cellsets = fine_cellsets)
     return fine_grid, fine2coarse, child_ref_coords
 end
 
@@ -422,8 +444,10 @@ function uniform_refinement(coarse_grid::Grid{3, Hexahedron, T}) where T
 
     fine_facetsets = _propagate_facetsets(coarse_grid, fine_cells, node_parents)
     fine_nodesets  = _propagate_nodesets(coarse_grid, node_parents)
+    fine_cellsets  = _propagate_cellsets(coarse_grid, fine2coarse)
     fine_grid = Grid(fine_cells, fine_nodes;
-                     facetsets = fine_facetsets, nodesets = fine_nodesets)
+                     facetsets = fine_facetsets, nodesets = fine_nodesets,
+                     cellsets = fine_cellsets)
     return fine_grid, fine2coarse, child_ref_coords
 end
 
@@ -472,6 +496,16 @@ function GridHierarchy(coarse_grid::Grid, n_refinements::Int)
 end
 
 Base.length(gh::GridHierarchy) = length(gh.grids)
+
+"""
+    DofHandlerHierarchy(gh::GridHierarchy)
+
+Allocate a `DofHandler` for each grid level in `gh` (coarsest first).
+Fields must be added via `add!` and the hierarchy must be closed via `close!`
+before use.
+"""
+DofHandlerHierarchy(gh::GridHierarchy) =
+    DofHandlerHierarchy([DofHandler(g) for g in gh.grids])
 
 
 #######################################################################
@@ -539,15 +573,15 @@ end
 #######################################################################
 
 """
-    gmultigrid(A, gh, dh_hierarchy, ch_hierarchy, config, pcoarse_solver; kwargs...)
+    gmultigrid(A, gh, dhh, chh, config, pcoarse_solver; kwargs...)
 
 Build a geometric multigrid preconditioner / solver for `Ax = b`.
 
 # Arguments
 - `A`             – assembled fine-grid matrix
 - `gh`            – [`GridHierarchy`](@ref) (from coarse to fine)
-- `dh_hierarchy`  – `AbstractVector{DofHandler}`, one per grid level (index 1 = coarsest)
-- `ch_hierarchy`  – `AbstractVector{ConstraintHandler}`, one per grid level
+- `dhh`           – [`DofHandlerHierarchy`](@ref), one handler per grid level (index 1 = coarsest)
+- `chh`           – [`ConstraintHandlerHierarchy`](@ref), one handler per grid level
 - `config`        – [`GMultigridConfiguration`](@ref)
 - `pcoarse_solver` – callable that returns a coarse-grid solver given the coarse matrix
 
@@ -562,8 +596,8 @@ Build a geometric multigrid preconditioner / solver for `Ax = b`.
 function gmultigrid(
         A::SparseMatrixCSC{T},
         gh::GridHierarchy,
-        dh_hierarchy::AbstractVector,
-        ch_hierarchy::AbstractVector,
+        dhh::DofHandlerHierarchy,
+        chh::ConstraintHandlerHierarchy,
         config::GMultigridConfiguration,
         pcoarse_solver;
         p          = nothing,
@@ -573,8 +607,8 @@ function gmultigrid(
 
     n_levels = length(gh) - 1  # number of level transitions (1 = one coarsening step)
     @assert n_levels >= 1
-    @assert length(dh_hierarchy) == length(gh) "dh_hierarchy must have length $(length(gh))"
-    @assert length(ch_hierarchy) == length(gh) "ch_hierarchy must have length $(length(gh))"
+    @assert length(dhh) == length(gh) "dhh must have length $(length(gh))"
+    @assert length(chh) == length(gh) "chh must have length $(length(gh))"
 
     # AlgebraicMultigrid level list: levels[1] = finest, levels[end] = one above coarsest
     levels = Level{SparseMatrixCSC{T,Int}, SparseMatrixCSC{T,Int}, Adjoint{T, SparseMatrixCSC{T,Int}}}[]
@@ -585,9 +619,9 @@ function gmultigrid(
 
     # Iterate from finest → coarsest
     for k in n_levels:-1:1
-        dh_fine   = dh_hierarchy[k+1]   # fine level   (gh.grids[k+1])
-        dh_coarse = dh_hierarchy[k]     # coarse level (gh.grids[k])
-        ch_coarse = ch_hierarchy[k]
+        dh_fine   = dhh[k+1]   # fine level   (gh.grids[k+1])
+        dh_coarse = dhh[k]     # coarse level (gh.grids[k])
+        ch_coarse = chh[k]
         f2c  = gh.fine2coarse[k]
         crc  = gh.child_ref_coords[k]
 
