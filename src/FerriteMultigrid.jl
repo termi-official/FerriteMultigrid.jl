@@ -37,7 +37,7 @@ import FerriteOperators:
     setup_element_cache, assemble_element!,
     setup_transfer_operator, setup_nested_transfer_operator,
     MassProlongatorIntegrator, NestedMassProlongatorIntegrator,
-    SameGridTransferCellIterator, NestedGridTransferCellIterator,
+    SameGridCellIterator, NestedGridCellIterator,
     getrowdofs, getcolumndofs,
     QuadratureRuleCollection, getquadraturerule,
     SequentialAssemblyStrategy, SequentialCPUDevice
@@ -51,6 +51,7 @@ include("pmultigrid.jl")
 include("multilevel.jl")
 include("gallery.jl")
 include("precs.jl")
+include("uniform_refinement.jl")
 include("geometric_multigrid.jl")
 
 export 
