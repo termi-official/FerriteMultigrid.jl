@@ -114,9 +114,11 @@ function build_geometric_prolongator(
     # Normalise rows: a fine dof shared by multiple fine cells accumulates multiple
     # element contributions; each row must be divided by the contribution count.
     row_contrib = zeros(Int, ndofs(dh_fine))
-    for tc in NestedGridCellIterator(dh_fine, dh_coarse, fine2coarse, child_ref_coords)
-        for rdof in getrowdofs(tc)
-            row_contrib[rdof] += 1
+    for (fine_sdh, coarse_sdh) in zip(dh_fine.subdofhandlers, dh_coarse.subdofhandlers)
+        for tc in NestedGridCellIterator(fine_sdh, coarse_sdh, fine2coarse, child_ref_coords)
+            for rdof in getrowdofs(tc)
+                row_contrib[rdof] += 1
+            end
         end
     end
     normalize_rows!(op.P, row_contrib)

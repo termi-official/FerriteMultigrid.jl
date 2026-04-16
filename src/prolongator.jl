@@ -18,9 +18,11 @@ function build_prolongator(fine_dh::DofHandler, coarse_dh::DofHandler)
 
     # Count how many element contributions each fine dof accumulated, then normalise.
     row_contrib = zeros(Int, ndofs(fine_dh))
-    for tc in SameGridCellIterator(fine_dh, coarse_dh)
-        for rdof in getrowdofs(tc)
-            row_contrib[rdof] += 1
+    for (fine_sdh, coarse_sdh) in zip(fine_dh.subdofhandlers, coarse_dh.subdofhandlers)
+        for tc in SameGridCellIterator(fine_sdh, coarse_sdh)
+            for rdof in getrowdofs(tc)
+                row_contrib[rdof] += 1
+            end
         end
     end
     @timeit_debug "row normalization" normalize_rows!(op.P, row_contrib)
