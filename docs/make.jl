@@ -38,11 +38,12 @@ bibtex_plugin = CitationBibliography(
         "Tutorials" => [
             "tutorials/linear_elasticity.md",
             "tutorials/hyperelasticity.md",
-            ],
-        "API Reference" => ["api-reference/fe.md",
-                             "api-reference/multigrid_problems.md",
-                             "api-reference/multilevel.md",
-                             "api-reference/pmg_config.md",],
+        ],
+        "API Reference" => [
+            "api-reference/multigrid_problems.md",
+            "api-reference/multilevel.md",
+            "api-reference/pmg_config.md",
+        ],
         "references.md",
         ],
     plugins = [

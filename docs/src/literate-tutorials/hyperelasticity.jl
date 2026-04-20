@@ -268,7 +268,6 @@ function _solve(N = 5)
         @timeit "Setup preconditioner" Pl = builder(K)[1]
         @timeit "Galerkin CG" _, ch_gal = IterativeSolvers.cg!(ΔΔu, K, g; Pl, maxiter = 100, log=true, verbose=false)
         @info "Galerkin CG iterations: $(ch_gal.iters)"
-        # @timeit "Galerkin only" solve(K, g, dh, ch, config_gal; B = B, log=true, rtol = 1e-10)
         fill!(ΔΔu, 0.0)
         @timeit "Galerkin GMRES" IterativeSolvers.gmres!(ΔΔu, K, g; Pl, maxiter = 100, verbose=false)
         fill!(ΔΔu, 0.0)

@@ -8,7 +8,6 @@ DocTestSetup = :(using FerriteMultigrid)
 
 ```@docs
 AbstractPMultigrid
-assemble
 ```
 
 ## Diffusion
