@@ -200,14 +200,13 @@ function _solve(N = 5)
     K = allocate_matrix(dh)
     g = zeros(_ndofs)
 
-    # FIXME this needs better integration
     dh_coarse = DofHandler(grid)
     add!(dh_coarse, :u, Lagrange{RefTetrahedron, 1}()^3) # Add a displacement field
     close!(dh_coarse)
     B = create_nns(dh_coarse)
     config_gal = pmultigrid_config(coarse_strategy = Galerkin())
     pcoarse_solver = SmoothedAggregationCoarseSolver(; B)
-    builder = PMultigridPreconBuilder(dh, ch, config_gal; pcoarse_solver)
+    builder = PMultigridPreconBuilder(DofHandlerHierarchy([dh_coarse, dh]), config_gal; pcoarse_solver)
 
     # Perform Newton iterations
     newton_itr = -1

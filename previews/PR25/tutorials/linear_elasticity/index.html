@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Linear Elasticity · FerriteMultigrid.jl</title><meta name="title" content="Linear Elasticity · FerriteMultigrid.jl"/><meta property="og:title" content="Linear Elasticity · FerriteMultigrid.jl"/><meta property="twitter:title" content="Linear Elasticity · FerriteMultigrid.jl"/><meta name="description" content="Documentation for FerriteMultigrid.jl."/><meta property="og:description" content="Documentation for FerriteMultigrid.jl."/><meta property="twitter:description" content="Documentation for FerriteMultigrid.jl."/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script><link href="../../assets/citations.css" rel="stylesheet" type="text/css"/><link href="../../assets/custom.css" rel="stylesheet" type="text/css"/></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">FerriteMultigrid.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><span class="tocitem">Tutorials</span><ul><li class="is-active"><a class="tocitem" href>Linear Elasticity</a><ul class="internal"><li><a class="tocitem" href="#Implementation"><span>Implementation</span></a></li><li><a class="tocitem" href="#linear-elasticity-plain-program"><span>Plain program</span></a></li></ul></li><li><a class="tocitem" href="../hyperelasticity/">Nonlinear Elasticity</a></li></ul></li><li><span class="tocitem">API Reference</span><ul><li><a class="tocitem" href="../../api-reference/multigrid_problems/">Multigrid Problems</a></li><li><a class="tocitem" href="../../api-reference/multilevel/">Multilevel</a></li><li><a class="tocitem" href="../../api-reference/pmg_config/">Multigrid Configuration</a></li></ul></li><li><a class="tocitem" href="../../references/">References</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Linear Elasticity</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Linear Elasticity</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/termi-official/FerriteMultigrid.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/termi-official/FerriteMultigrid.jl/blob/main/docs/src/literate-tutorials/linear_elasticity.jl" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="tutorial-linear-elasticity"><a class="docs-heading-anchor" href="#tutorial-linear-elasticity">Linear Elasticity</a><a id="tutorial-linear-elasticity-1"></a><a class="docs-heading-anchor-permalink" href="#tutorial-linear-elasticity" title="Permalink"></a></h1><p><img src="../linear_elasticity.svg" alt/></p><p><em>Figure 1</em>: Linear elastically deformed 1mm <span>$\times$</span> 1mm Ferrite logo.</p><div class="admonition is-info" id="Note-feec48883da1e903"><header class="admonition-header">Note<a class="admonition-anchor" href="#Note-feec48883da1e903" title="Permalink"></a></header><div class="admonition-body"><p>The full explanation for the underlying FEM theory in this example can be found in the <a href="https://ferrite-fem.github.io/Ferrite.jl/stable/tutorials/linear_elasticity/">Linear Elasticity</a> tutorial of the Ferrite.jl documentation.</p></div></div><h2 id="Implementation"><a class="docs-heading-anchor" href="#Implementation">Implementation</a><a id="Implementation-1"></a><a class="docs-heading-anchor-permalink" href="#Implementation" title="Permalink"></a></h2><p>The following code is based on the <a href="https://ferrite-fem.github.io/Ferrite.jl/stable/tutorials/linear_elasticity/">Linear Elasticity</a> tutorial from the Ferrite.jl documentation, with some comments removed for brevity. There are two main modifications:</p><ol><li>Fourth-order <code>Lagrange</code> shape functions are used for field approximation: <code>ip = Lagrange{RefTriangle,4}()^2</code>.</li><li>High-order quadrature points are used to accommodate the fourth-order shape functions: <code>qr = QuadratureRule{RefTriangle}(8)</code>.</li></ol><pre><code class="language-julia hljs">using Ferrite, FerriteGmsh, FerriteMultigrid, AlgebraicMultigrid
+<html lang="en"><head><meta charset="UTF-8"/><meta name="viewport" content="width=device-width, initial-scale=1.0"/><title>Linear Elasticity · FerriteMultigrid.jl</title><meta name="title" content="Linear Elasticity · FerriteMultigrid.jl"/><meta property="og:title" content="Linear Elasticity · FerriteMultigrid.jl"/><meta property="twitter:title" content="Linear Elasticity · FerriteMultigrid.jl"/><meta name="description" content="Documentation for FerriteMultigrid.jl."/><meta property="og:description" content="Documentation for FerriteMultigrid.jl."/><meta property="twitter:description" content="Documentation for FerriteMultigrid.jl."/><script data-outdated-warner src="../../assets/warner.js"></script><link href="https://cdnjs.cloudflare.com/ajax/libs/lato-font/3.0.0/css/lato-font.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/juliamono/0.050/juliamono.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/fontawesome.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/solid.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.2/css/brands.min.css" rel="stylesheet" type="text/css"/><link href="https://cdnjs.cloudflare.com/ajax/libs/KaTeX/0.16.8/katex.min.css" rel="stylesheet" type="text/css"/><script>documenterBaseURL="../.."</script><script src="https://cdnjs.cloudflare.com/ajax/libs/require.js/2.3.6/require.min.js" data-main="../../assets/documenter.js"></script><script src="../../search_index.js"></script><script src="../../siteinfo.js"></script><script src="../../../versions.js"></script><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-mocha.css" data-theme-name="catppuccin-mocha"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-macchiato.css" data-theme-name="catppuccin-macchiato"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-frappe.css" data-theme-name="catppuccin-frappe"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/catppuccin-latte.css" data-theme-name="catppuccin-latte"/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-dark.css" data-theme-name="documenter-dark" data-theme-primary-dark/><link class="docs-theme-link" rel="stylesheet" type="text/css" href="../../assets/themes/documenter-light.css" data-theme-name="documenter-light" data-theme-primary/><script src="../../assets/themeswap.js"></script><link href="../../assets/citations.css" rel="stylesheet" type="text/css"/><link href="../../assets/custom.css" rel="stylesheet" type="text/css"/></head><body><div id="documenter"><nav class="docs-sidebar"><div class="docs-package-name"><span class="docs-autofit"><a href="../../">FerriteMultigrid.jl</a></span></div><button class="docs-search-query input is-rounded is-small is-clickable my-2 mx-auto py-1 px-2" id="documenter-search-query">Search docs (Ctrl + /)</button><ul class="docs-menu"><li><a class="tocitem" href="../../">Home</a></li><li><span class="tocitem">Tutorials</span><ul><li class="is-active"><a class="tocitem" href>Linear Elasticity</a><ul class="internal"><li><a class="tocitem" href="#Implementation"><span>Implementation</span></a></li><li><a class="tocitem" href="#linear-elasticity-plain-program"><span>Plain program</span></a></li></ul></li><li><a class="tocitem" href="../hyperelasticity/">Nonlinear Elasticity</a></li></ul></li><li><span class="tocitem">API Reference</span><ul><li><a class="tocitem" href="../../api-reference/multilevel/">Multilevel</a></li><li><a class="tocitem" href="../../api-reference/pmg_config/">Multigrid Configuration</a></li></ul></li><li><a class="tocitem" href="../../references/">References</a></li></ul><div class="docs-version-selector field has-addons"><div class="control"><span class="docs-label button is-static is-size-7">Version</span></div><div class="docs-selector control is-expanded"><div class="select is-fullwidth is-size-7"><select id="documenter-version-selector"></select></div></div></div></nav><div class="docs-main"><header class="docs-navbar"><a class="docs-sidebar-button docs-navbar-link fa-solid fa-bars is-hidden-desktop" id="documenter-sidebar-button" href="#"></a><nav class="breadcrumb"><ul class="is-hidden-mobile"><li><a class="is-disabled">Tutorials</a></li><li class="is-active"><a href>Linear Elasticity</a></li></ul><ul class="is-hidden-tablet"><li class="is-active"><a href>Linear Elasticity</a></li></ul></nav><div class="docs-right"><a class="docs-navbar-link" href="https://github.com/termi-official/FerriteMultigrid.jl" title="View the repository on GitHub"><span class="docs-icon fa-brands"></span><span class="docs-label is-hidden-touch">GitHub</span></a><a class="docs-navbar-link" href="https://github.com/termi-official/FerriteMultigrid.jl/blob/main/docs/src/literate-tutorials/linear_elasticity.jl" title="Edit source on GitHub"><span class="docs-icon fa-solid"></span></a><a class="docs-settings-button docs-navbar-link fa-solid fa-gear" id="documenter-settings-button" href="#" title="Settings"></a><a class="docs-article-toggle-button fa-solid fa-chevron-up" id="documenter-article-toggle-button" href="javascript:;" title="Collapse all docstrings"></a></div></header><article class="content" id="documenter-page"><h1 id="tutorial-linear-elasticity"><a class="docs-heading-anchor" href="#tutorial-linear-elasticity">Linear Elasticity</a><a id="tutorial-linear-elasticity-1"></a><a class="docs-heading-anchor-permalink" href="#tutorial-linear-elasticity" title="Permalink"></a></h1><p><img src="../linear_elasticity.svg" alt/></p><p><em>Figure 1</em>: Linear elastically deformed 1mm <span>$\times$</span> 1mm Ferrite logo.</p><div class="admonition is-info" id="Note-feec48883da1e903"><header class="admonition-header">Note<a class="admonition-anchor" href="#Note-feec48883da1e903" title="Permalink"></a></header><div class="admonition-body"><p>The full explanation for the underlying FEM theory in this example can be found in the <a href="https://ferrite-fem.github.io/Ferrite.jl/stable/tutorials/linear_elasticity/">Linear Elasticity</a> tutorial of the Ferrite.jl documentation.</p></div></div><h2 id="Implementation"><a class="docs-heading-anchor" href="#Implementation">Implementation</a><a id="Implementation-1"></a><a class="docs-heading-anchor-permalink" href="#Implementation" title="Permalink"></a></h2><p>The following code is based on the <a href="https://ferrite-fem.github.io/Ferrite.jl/stable/tutorials/linear_elasticity/">Linear Elasticity</a> tutorial from the Ferrite.jl documentation, with some comments removed for brevity. There are two main modifications:</p><ol><li>Fourth-order <code>Lagrange</code> shape functions are used for field approximation: <code>ip = Lagrange{RefTriangle,4}()^2</code>.</li><li>High-order quadrature points are used to accommodate the fourth-order shape functions: <code>qr = QuadratureRule{RefTriangle}(8)</code>.</li></ol><pre><code class="language-julia hljs">using Ferrite, FerriteGmsh, FerriteOperators, FerriteMultigrid, AlgebraicMultigrid
 using Downloads: download
 using IterativeSolvers
 using TimerOutputs
@@ -100,20 +100,19 @@ function linear_elasticity_2d(C)
     cellvalues = CellValues(qr, ip)
     facetvalues = FacetValues(qr_face, ip)
 
-    dh = DofHandler(grid)
-    add!(dh, :u, ip)
-    close!(dh)
+    dhh = DofHandlerHierarchy(grid, 2)
+    add!(dhh, :u, [ip_coarse, ip])
+    close!(dhh)
 
-    dh_coarse = DofHandler(grid)
-    add!(dh_coarse, :u, ip_coarse)
-    close!(dh_coarse)
-
-    ch = ConstraintHandler(dh)
-    add!(ch, Dirichlet(:u, getfacetset(grid, &quot;bottom&quot;), (x, t) -&gt; 0.0, 2))
-    add!(ch, Dirichlet(:u, getfacetset(grid, &quot;left&quot;), (x, t) -&gt; 0.0, 1))
-    close!(ch)
+    chh = ConstraintHandlerHierarchy(dhh)
+    add!(chh, dh-&gt;Dirichlet(:u, getfacetset(dh.grid, &quot;bottom&quot;), (x, t) -&gt; 0.0, 2))
+    add!(chh, dh-&gt;Dirichlet(:u, getfacetset(dh.grid, &quot;left&quot;), (x, t) -&gt; 0.0, 1))
+    close!(chh)
 
     traction(x) = Vec(0.0, 20.0e3 * x[1])
+
+    dh = dhh[end]
+    ch = chh[end]
 
     A = allocate_matrix(dh)
     assemble_global!(A, dh, cellvalues, C)
@@ -122,8 +121,48 @@ function linear_elasticity_2d(C)
     assemble_external_forces!(b, dh, getfacetset(grid, &quot;top&quot;), facetvalues, traction)
     apply!(A, b, ch)
 
-    return A, b, dh, dh_coarse, ch
-end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">linear_elasticity_2d (generic function with 1 method)</code></pre><h3 id="Near-Null-Space-(NNS)"><a class="docs-heading-anchor" href="#Near-Null-Space-(NNS)">Near Null Space (NNS)</a><a id="Near-Null-Space-(NNS)-1"></a><a class="docs-heading-anchor-permalink" href="#Near-Null-Space-(NNS)" title="Permalink"></a></h3><p>In multigrid methods for problems with vector-valued unknowns, such as linear elasticity, the near null space represents the low energy mode or the smooth error that needs to be captured in the coarser grid when using SA-AMG (Smoothed Aggregation Algebraic Multigrid), more on the topic can be found  in <a href="../../references/#schroder2010">Schroder [1]</a>.</p><p>For 2D linear elasticity problems, the rigid body modes are:</p><ol><li>Translation in the x-direction,</li><li>Translation in the y-direction,</li><li>Rotation about the z-axis (i.e., <span>$x_3$</span>): each point (x, y) is mapped to (-y, x).</li></ol><p>The function <code>create_nns</code> constructs the NNS matrix <code>B ∈ ℝ^{n × 3}</code>, where <code>n</code> is the number of degrees of freedom (DOFs) for the case of <code>p</code> = 1 (i.e., linear interpolation), because <code>B</code> is only relevant for AMG.</p><pre><code class="language-julia hljs">function create_nns(dh, fieldname = first(dh.field_names))
+    return A, b, dhh, chh
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">linear_elasticity_2d (generic function with 1 method)</code></pre><h3 id="Rediscretization"><a class="docs-heading-anchor" href="#Rediscretization">Rediscretization</a><a id="Rediscretization-1"></a><a class="docs-heading-anchor-permalink" href="#Rediscretization" title="Permalink"></a></h3><p>For the rediscretization approach we can define the assembly for the levels via FerriteOperators directly.</p><pre><code class="language-julia hljs">&quot;&quot;&quot;
+    LinearElasticityIntegrator{TC, QRC} &lt;: AbstractBilinearIntegrator
+
+Multigrid problem for linear elasticity.
+Implements the FerriteOperators `AbstractBilinearIntegrator` interface.
+&quot;&quot;&quot;
+struct LinearElasticityIntegrator{TC &lt;: SymmetricTensor, QRC} &lt;: FerriteOperators.AbstractBilinearIntegrator
+    ℂ::TC  # material stiffness tensor (4th order)
+    qrc::QRC
+end
+
+struct LinearElasticityElementCache{CV, TC} &lt;: FerriteOperators.AbstractVolumetricElementCache
+    cv::CV
+    ℂ::TC
+end
+
+function FerriteOperators.setup_element_cache(problem::LinearElasticityIntegrator, sdh::SubDofHandler)
+    qr     = getquadraturerule(problem.qrc, sdh)
+    ip     = Ferrite.getfieldinterpolation(sdh, first(Ferrite.getfieldnames(sdh)))
+    first_cell = getcells(Ferrite.get_grid(sdh.dh), first(sdh.cellset))
+    ip_geo = Ferrite.geometric_interpolation(typeof(first_cell))
+    cv     = CellValues(qr, ip, ip_geo)
+    return LinearElasticityElementCache(cv, problem.ℂ)
+end
+
+function FerriteOperators.assemble_element!(Ke::AbstractMatrix, cell::CellCache, cache::LinearElasticityElementCache, p)
+    reinit!(cache.cv, cell)
+    fill!(Ke, 0.0)
+    ℂ = cache.ℂ
+    for q_point in 1:getnquadpoints(cache.cv)
+        dΩ = getdetJdV(cache.cv, q_point)
+        for i in 1:getnbasefunctions(cache.cv)
+            ∇ˢʸᵐNᵢ = shape_symmetric_gradient(cache.cv, q_point, i)
+            for j in 1:getnbasefunctions(cache.cv)
+                ∇ˢʸᵐNⱼ = shape_symmetric_gradient(cache.cv, q_point, j)
+                Ke[i, j] += (∇ˢʸᵐNᵢ ⊡ ℂ ⊡ ∇ˢʸᵐNⱼ) * dΩ
+            end
+        end
+    end
+    return Ke
+end</code></pre><h3 id="Near-Null-Space-(NNS)"><a class="docs-heading-anchor" href="#Near-Null-Space-(NNS)">Near Null Space (NNS)</a><a id="Near-Null-Space-(NNS)-1"></a><a class="docs-heading-anchor-permalink" href="#Near-Null-Space-(NNS)" title="Permalink"></a></h3><p>In multigrid methods for problems with vector-valued unknowns, such as linear elasticity, the near null space represents the low energy mode or the smooth error that needs to be captured in the coarser grid when using SA-AMG (Smoothed Aggregation Algebraic Multigrid), more on the topic can be found  in <a href="../../references/#schroder2010">Schroder [1]</a>.</p><p>For 2D linear elasticity problems, the rigid body modes are:</p><ol><li>Translation in the x-direction,</li><li>Translation in the y-direction,</li><li>Rotation about the z-axis (i.e., <span>$x_3$</span>): each point (x, y) is mapped to (-y, x).</li></ol><p>The function <code>create_nns</code> constructs the NNS matrix <code>B ∈ ℝ^{n × 3}</code>, where <code>n</code> is the number of degrees of freedom (DOFs) for the case of <code>p</code> = 1 (i.e., linear interpolation), because <code>B</code> is only relevant for AMG.</p><pre><code class="language-julia hljs">function create_nns(dh, fieldname = first(dh.field_names))
     @assert length(dh.field_names) == 1 &quot;Only a single field is supported for now.&quot;
 
     coords_flat = zeros(ndofs(dh))
@@ -142,7 +181,7 @@ end</code></pre><pre class="documenter-example-output"><code class="nohighlight 
     B[2:2:end, 3] .= x
 
     return B
-end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">create_nns (generic function with 2 methods)</code></pre><h3 id="Setup-the-linear-elasticity-problem"><a class="docs-heading-anchor" href="#Setup-the-linear-elasticity-problem">Setup the linear elasticity problem</a><a id="Setup-the-linear-elasticity-problem-1"></a><a class="docs-heading-anchor-permalink" href="#Setup-the-linear-elasticity-problem" title="Permalink"></a></h3><p>Load <code>FerriteMultigrid</code> to access the p-multigrid solver.</p><pre><code class="language-julia hljs">using FerriteMultigrid</code></pre><p>Construct the linear elasticity problem with 4th order polynomial shape functions.</p><pre><code class="language-julia hljs">A, b, dh, dh_coarse, ch = linear_elasticity_2d(C);</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Info    : Reading &#39;logo.geo&#39;...
+end</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">create_nns (generic function with 2 methods)</code></pre><h3 id="Setup-the-linear-elasticity-problem"><a class="docs-heading-anchor" href="#Setup-the-linear-elasticity-problem">Setup the linear elasticity problem</a><a id="Setup-the-linear-elasticity-problem-1"></a><a class="docs-heading-anchor-permalink" href="#Setup-the-linear-elasticity-problem" title="Permalink"></a></h3><p>Load <code>FerriteMultigrid</code> to access the p-multigrid solver.</p><pre><code class="language-julia hljs">using FerriteMultigrid</code></pre><p>Construct the linear elasticity problem with 4th order polynomial shape functions.</p><pre><code class="language-julia hljs">A, b, dhh, chh = linear_elasticity_2d(C);</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">Info    : Reading &#39;logo.geo&#39;...
 Info    : Done reading &#39;logo.geo&#39;
 Info    : Meshing 1D...
 Info    : [  0%] Meshing curve 1 (Line)
@@ -163,7 +202,7 @@ Info    : [ 80%] Meshing curve 15 (Line)
 Info    : [ 90%] Meshing curve 16 (Line)
 Info    : [ 90%] Meshing curve 17 (Line)
 Info    : [100%] Meshing curve 18 (Line)
-Info    : Done meshing 1D (Wall 0.000762708s, CPU 0.000764s)
+Info    : Done meshing 1D (Wall 0.00094393s, CPU 0.000945s)
 Info    : Meshing 2D...
 Info    : [  0%] Meshing surface 1 (Plane, Frontal-Delaunay)
 Info    : [ 20%] Meshing surface 2 (Plane, Frontal-Delaunay)
@@ -171,8 +210,8 @@ Info    : [ 40%] Meshing surface 3 (Plane, Frontal-Delaunay)
 Info    : [ 60%] Meshing surface 4 (Plane, Frontal-Delaunay)
 Info    : [ 70%] Meshing surface 5 (Plane, Frontal-Delaunay)
 Info    : [ 90%] Meshing surface 6 (Plane, Frontal-Delaunay)
-Info    : Done meshing 2D (Wall 0.00174202s, CPU 0.001737s)
-Info    : 104 nodes 245 elements</code></pre><p>Construct the near null space (NNS) matrix</p><pre><code class="language-julia hljs">B = create_nns(dh_coarse)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">208×3 Matrix{Float64}:
+Info    : Done meshing 2D (Wall 0.00185979s, CPU 0.001853s)
+Info    : 104 nodes 245 elements</code></pre><p>Construct the near null space (NNS) matrix</p><pre><code class="language-julia hljs">B = create_nns(dhh[1])</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">208×3 Matrix{Float64}:
  1.0  0.0  -1.0
  0.0  1.0   0.801535
  1.0  0.0  -0.253172
@@ -195,163 +234,163 @@ Info    : 104 nodes 245 elements</code></pre><p>Construct the near null space (N
  0.0  1.0   0.126586</code></pre><div class="admonition is-danger" id="Danger-2c3c59d1e0ef57dd"><header class="admonition-header">Danger<a class="admonition-anchor" href="#Danger-2c3c59d1e0ef57dd" title="Permalink"></a></header><div class="admonition-body"><p>Since NNS matrix is only relevant for AMG, and it is not used in the p-multigrid solver, therefore, <code>B</code> has to provided using linear field approximation (i.e., <code>p = 1</code>) when using AMG as the coarse solver, otherwise (e.g., using <code>Pinv</code> as the coarse solver), then we don&#39;t have to provide it.</p></div></div><h3 id="P-multigrid-Configuration"><a class="docs-heading-anchor" href="#P-multigrid-Configuration">P-multigrid Configuration</a><a id="P-multigrid-Configuration-1"></a><a class="docs-heading-anchor-permalink" href="#P-multigrid-Configuration" title="Permalink"></a></h3><pre><code class="language-julia hljs">reset_timer!()
 
 pcoarse_solver = SmoothedAggregationCoarseSolver(; B)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">SmoothedAggregationCoarseSolver{Tuple{}, Base.Pairs{Symbol, Matrix{Float64}, Nothing, @NamedTuple{B::Matrix{Float64}}}}((), Base.Pairs(:B =&gt; [1.0 0.0 -1.0; 0.0 1.0 0.801534880751; … ; 1.0 0.0 -0.4777949032272307; 0.0 1.0 0.1265859930873549]))</code></pre><h4 id="0.-CG-as-baseline"><a class="docs-heading-anchor" href="#0.-CG-as-baseline">0. CG as baseline</a><a id="0.-CG-as-baseline-1"></a><a class="docs-heading-anchor-permalink" href="#0.-CG-as-baseline" title="Permalink"></a></h4><pre><code class="language-julia hljs">@timeit &quot;CG&quot; x_cg = IterativeSolvers.cg(A, b; maxiter = 1000, verbose=false)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">2914-element Vector{Float64}:
- -0.009922773141371173
-  0.027908992919327268
- -0.012273544907570325
-  0.02778766287870026
- -0.011716098077053011
-  0.033802487125384806
- -0.010480498290330232
-  0.027964097065437905
- -0.011058650994031425
-  0.027963704627007483
+ -0.009922773142129101
+  0.027908992919798835
+ -0.012273544906839417
+  0.02778766287937867
+ -0.01171609807787134
+  0.03380248712544142
+ -0.010480498291317988
+  0.027964097065637683
+ -0.011058650993627232
+  0.027963704627201345
   ⋮
-  0.02044737400089176
- -0.0034252013982135118
-  0.019667499675932603
- -0.006499317727162453
-  0.02796650153425528
- -0.007055602278411822
-  0.02916954209772766
- -0.007090577588400161
-  0.029186469235024694</code></pre><h4 id="1.-Galerkin-Coarsening-Strategy"><a class="docs-heading-anchor" href="#1.-Galerkin-Coarsening-Strategy">1. Galerkin Coarsening Strategy</a><a id="1.-Galerkin-Coarsening-Strategy-1"></a><a class="docs-heading-anchor-permalink" href="#1.-Galerkin-Coarsening-Strategy" title="Permalink"></a></h4><pre><code class="language-julia hljs">config_gal = pmultigrid_config(coarse_strategy = Galerkin())
-@timeit &quot;Galerkin only&quot; x_gal, res_gal = solve(A, b, dh, ch, config_gal; pcoarse_solver, log=true, maxiter = 1000, rtol = 1e-10)
+  0.02044737400079658
+ -0.003425201397929082
+  0.01966749967600462
+ -0.006499317726805468
+  0.027966501533483217
+ -0.007055602277993196
+  0.029169542096681003
+ -0.007090577588019493
+  0.029186469234192165</code></pre><h4 id="1.-Galerkin-Coarsening-Strategy"><a class="docs-heading-anchor" href="#1.-Galerkin-Coarsening-Strategy">1. Galerkin Coarsening Strategy</a><a id="1.-Galerkin-Coarsening-Strategy-1"></a><a class="docs-heading-anchor-permalink" href="#1.-Galerkin-Coarsening-Strategy" title="Permalink"></a></h4><pre><code class="language-julia hljs">config_gal = pmultigrid_config(coarse_strategy = Galerkin())
+@timeit &quot;Galerkin only&quot; x_gal, res_gal = solve(A, b, dhh, chh, config_gal; pcoarse_solver, log=true, maxiter = 1000, rtol = 1e-10)
 
-builder_gal = PMultigridPreconBuilder(dh, ch, config_gal; pcoarse_solver)
+builder_gal = PMultigridPreconBuilder(dhh, chh, config_gal; pcoarse_solver)
 @timeit &quot;Build preconditioner&quot; Pl_gal = builder_gal(A)[1]
-@timeit &quot;Galerkin CG&quot; x_gcg, res_gcg = IterativeSolvers.cg(A, b; Pl = Pl_gal, maxiter = 1000, log=true, verbose=false)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">([-0.00992277314627225, 0.02790899291242644, -0.012273544891532536, 0.027787662908604956, -0.011716098091035595, 0.03380248711569953, -0.010480498287966065, 0.027964097068314344, -0.011058650985475645, 0.02796370463953085  …  -0.0035714235553920186, 0.020447373995126198, -0.003425201416680454, 0.01966749967056065, -0.006499317701510651, 0.02796650151153085, -0.007055602253317406, 0.029169542074868826, -0.007090577558189128, 0.02918646921245692], Converged after 20 iterations.)</code></pre><h4 id="2.-Rediscretization-Coarsening-Strategy"><a class="docs-heading-anchor" href="#2.-Rediscretization-Coarsening-Strategy">2. Rediscretization Coarsening Strategy</a><a id="2.-Rediscretization-Coarsening-Strategy-1"></a><a class="docs-heading-anchor-permalink" href="#2.-Rediscretization-Coarsening-Strategy" title="Permalink"></a></h4><pre><code class="language-julia hljs"># Rediscretization Coarsening Strategy
-config_red = pmultigrid_config(coarse_strategy = Rediscretization(LinearElasticityMultigrid(C)))
-@timeit &quot;Rediscretization only&quot; x_red, res_red = solve(A, b, dh, ch, config_red; pcoarse_solver, log=true, maxiter = 1000, rtol = 1e-10)
+@timeit &quot;Galerkin CG&quot; x_gcg, res_gcg = IterativeSolvers.cg(A, b; Pl = Pl_gal, maxiter = 1000, log=true, verbose=false)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">([-0.009922773153929443, 0.027908992914389513, -0.012273544896188269, 0.027787662912038318, -0.011716098100135108, 0.03380248711501701, -0.01048049829342821, 0.027964097071296875, -0.011058650989961998, 0.027963704643440248  …  -0.003571423558630188, 0.020447373993879355, -0.003425201420081077, 0.019667499669029847, -0.0064993177055212665, 0.027966501508462246, -0.007055602258107707, 0.02916954207258561, -0.007090577563356513, 0.029186469210195663], Converged after 29 iterations.)</code></pre><h4 id="2.-Rediscretization-Coarsening-Strategy"><a class="docs-heading-anchor" href="#2.-Rediscretization-Coarsening-Strategy">2. Rediscretization Coarsening Strategy</a><a id="2.-Rediscretization-Coarsening-Strategy-1"></a><a class="docs-heading-anchor-permalink" href="#2.-Rediscretization-Coarsening-Strategy" title="Permalink"></a></h4><pre><code class="language-julia hljs"># Rediscretization Coarsening Strategy
+config_red = pmultigrid_config(coarse_strategy = Rediscretization(LinearElasticityIntegrator(C, QuadratureRuleCollection(7))))
+@timeit &quot;Rediscretization only&quot; x_red, res_red = solve(A, b, dhh, chh, config_red; pcoarse_solver, log=true, maxiter = 1000, rtol = 1e-10)
 
-builder_red = PMultigridPreconBuilder(dh, ch, config_red; pcoarse_solver)
+builder_red = PMultigridPreconBuilder(dhh, chh, config_red; pcoarse_solver)
 @timeit &quot;Build preconditioner&quot; Pl_red = builder_red(A)[1]
 @timeit &quot;Rediscretization CG&quot; x_rcg, res_rcg = IterativeSolvers.cg(A, b; Pl = Pl_red, maxiter = 1000, log=true, verbose=false)
 
-print_timer(title = &quot;Analysis with $(getncells(dh.grid)) elements&quot;, linechars = :ascii)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr1">-----------------------------------------------------------------------------------------------</span>
+print_timer(title = &quot;Analysis with $(getncells(dhh[end].grid)) elements&quot;, linechars = :ascii)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr1">-----------------------------------------------------------------------------------------------</span>
 <span class="sgr1">         Analysis with 174 elements          </span>         Time                    Allocations
                                              -----------------------   ------------------------
-              Tot / % measured:                   2.79s /  95.0%            446MiB /  96.6%
+              Tot / % measured:                   1.27s /  86.0%            131MiB /  88.1%
 
 Section                              ncalls     time    %tot     avg     alloc    %tot      avg
 -----------------------------------------------------------------------------------------------
-Galerkin only                             1    1.38s   51.9%   1.38s    169MiB   39.2%   169MiB
-  solve!                                  1    1.28s   48.3%   1.28s   12.5MiB    2.9%  12.5MiB
-    Presmoother                         573    495ms   18.7%   864μs     0.00B    0.0%    0.00B
-    Postsmoother                        573    490ms   18.5%   856μs     0.00B    0.0%    0.00B
-    Residual eval                       573    152ms    5.7%   265μs     0.00B    0.0%    0.00B
-    Coarse solve                        191   38.3ms    1.4%   200μs    357KiB    0.1%  1.87KiB
-      Presmoother                       191   17.5ms    0.7%  91.9μs     0.00B    0.0%    0.00B
-      Postsmoother                      191   14.7ms    0.6%  76.9μs     0.00B    0.0%    0.00B
-      Residual eval                     191   4.44ms    0.2%  23.2μs     0.00B    0.0%    0.00B
-      Restriction                       191    317μs    0.0%  1.66μs     0.00B    0.0%    0.00B
-      Coarse solve                      191    199μs    0.0%  1.04μs     0.00B    0.0%    0.00B
-      Prolongation                      191    169μs    0.0%   887ns     0.00B    0.0%    0.00B
-    Prolongation                        573   32.9ms    1.2%  57.4μs     0.00B    0.0%    0.00B
-    Restriction                         573   30.3ms    1.1%  52.9μs     0.00B    0.0%    0.00B
-  init                                    1   95.1ms    3.6%  95.1ms    156MiB   36.3%   156MiB
-    extend_hierarchy!                     3   92.7ms    3.5%  30.9ms    155MiB   35.9%  51.5MiB
-      RAP                                 3   79.7ms    3.0%  26.6ms    120MiB   27.9%  40.1MiB
-      build prolongator                   3   12.9ms    0.5%  4.32ms   34.4MiB    8.0%  11.5MiB
-        assemble transfer operator        3   8.41ms    0.3%  2.80ms   93.4KiB    0.0%  31.1KiB
-        setup transfer operator           3   4.24ms    0.2%  1.41ms   34.2MiB    8.0%  11.4MiB
-        row normalization                 3    203μs    0.0%  67.8μs     0.00B    0.0%    0.00B
-      build restriction                   3    465ns    0.0%   155ns      144B    0.0%    48.0B
-    coarse solver setup                   1   1.95ms    0.1%  1.95ms   1.32MiB    0.3%  1.32MiB
-      extend_hierarchy!                   1   1.89ms    0.1%  1.89ms   1.31MiB    0.3%  1.31MiB
-        improve candidates                1    931μs    0.0%   931μs     0.00B    0.0%    0.00B
-        restriction setup                 1    388μs    0.0%   388μs    701KiB    0.2%   701KiB
-        strength                          1    253μs    0.0%   253μs    547KiB    0.1%   547KiB
-        RAP                               1    202μs    0.0%   202μs   24.0KiB    0.0%  24.0KiB
-        fit candidates                    1    107μs    0.0%   107μs   54.5KiB    0.0%  54.5KiB
-        aggregation                       1   3.80μs    0.0%  3.80μs   7.22KiB    0.0%  7.22KiB
-      coarse solver setup                 1   38.4μs    0.0%  38.4μs   3.19KiB    0.0%  3.19KiB
-      prologue                            1   6.84μs    0.0%  6.84μs   6.93KiB    0.0%  6.93KiB
-      ml setup                            1   4.45μs    0.0%  4.45μs      224B    0.0%     224B
-Rediscretization only                     1    564ms   21.3%   564ms   65.1MiB   15.1%  65.1MiB
-  solve!                                  1    546ms   20.6%   546ms   27.7MiB    6.4%  27.7MiB
-    Presmoother                       1.26k    181ms    6.8%   144μs     0.00B    0.0%    0.00B
-    Postsmoother                      1.26k    181ms    6.8%   144μs     0.00B    0.0%    0.00B
-    Residual eval                     1.26k   52.8ms    2.0%  41.9μs     0.00B    0.0%    0.00B
-    Restriction                       1.26k   41.3ms    1.6%  32.8μs     0.00B    0.0%    0.00B
-    Prolongation                      1.26k   33.1ms    1.2%  26.2μs     0.00B    0.0%    0.00B
-    Coarse solve                        420   10.5ms    0.4%  25.0μs    960KiB    0.2%  2.29KiB
-      Presmoother                       840   3.64ms    0.1%  4.33μs     0.00B    0.0%    0.00B
-      Postsmoother                      840   3.55ms    0.1%  4.22μs     0.00B    0.0%    0.00B
-      Residual eval                     840   1.14ms    0.0%  1.36μs     0.00B    0.0%    0.00B
-      Restriction                       840    582μs    0.0%   693ns     0.00B    0.0%    0.00B
-      Prolongation                      840    395μs    0.0%   470ns     0.00B    0.0%    0.00B
-      Coarse solve                      420    113μs    0.0%   269ns     0.00B    0.0%    0.00B
-  init                                    1   17.2ms    0.7%  17.2ms   37.4MiB    8.7%  37.4MiB
-    extend_hierarchy!                     3   16.2ms    0.6%  5.42ms   36.4MiB    8.5%  12.1MiB
-      assemble transfer operator          3   8.34ms    0.3%  2.78ms   93.4KiB    0.0%  31.1KiB
-      setup transfer operator             3   5.11ms    0.2%  1.70ms   34.2MiB    8.0%  11.4MiB
-      assemble coarse operator            3   1.51ms    0.1%   502μs   83.6KiB    0.0%  27.9KiB
-      setup coarse operator               3    860μs    0.0%   287μs   1.97MiB    0.5%   673KiB
-      row normalization                   3    204μs    0.0%  68.1μs     0.00B    0.0%    0.00B
-    coarse solver setup                   1    526μs    0.0%   526μs    546KiB    0.1%   546KiB
-      extend_hierarchy!                   2    483μs    0.0%   241μs    533KiB    0.1%   267KiB
-        fit candidates                    2    157μs    0.0%  78.5μs   82.2KiB    0.0%  41.1KiB
-        improve candidates                2    109μs    0.0%  54.7μs     0.00B    0.0%    0.00B
-        RAP                               2   90.5μs    0.0%  45.2μs    175KiB    0.0%  87.4KiB
-        restriction setup                 2   71.9μs    0.0%  36.0μs    192KiB    0.0%  96.0KiB
-        strength                          2   33.6μs    0.0%  16.8μs   51.6KiB    0.0%  25.8KiB
-        aggregation                       2   14.8μs    0.0%  7.38μs   24.0KiB    0.0%  12.0KiB
-      coarse solver setup                 1   33.9μs    0.0%  33.9μs   3.19KiB    0.0%  3.19KiB
-      ml setup                            1   3.49μs    0.0%  3.49μs      224B    0.0%     224B
-      prologue                            1   2.30μs    0.0%  2.30μs   6.93KiB    0.0%  6.93KiB
-Build preconditioner                      2    470ms   17.7%   235ms    194MiB   45.0%  96.9MiB
-  pmultigrid hierarchy                    2    470ms   17.7%   235ms    194MiB   45.0%  96.9MiB
-    extend_hierarchy!                     6    467ms   17.6%  77.8ms    191MiB   44.4%  31.8MiB
-      RAP                                 3    438ms   16.5%   146ms    120MiB   27.9%  40.1MiB
-      build prolongator                   3   13.0ms    0.5%  4.32ms   34.4MiB    8.0%  11.5MiB
-        assemble transfer operator        3   8.35ms    0.3%  2.78ms   93.4KiB    0.0%  31.1KiB
-        setup transfer operator           3   4.31ms    0.2%  1.44ms   34.2MiB    8.0%  11.4MiB
-        row normalization                 3    213μs    0.0%  71.1μs     0.00B    0.0%    0.00B
-      assemble transfer operator          3   8.36ms    0.3%  2.79ms   93.4KiB    0.0%  31.1KiB
-      setup transfer operator             3   4.41ms    0.2%  1.47ms   34.2MiB    8.0%  11.4MiB
-      assemble coarse operator            3   1.37ms    0.1%   458μs   83.6KiB    0.0%  27.9KiB
-      setup coarse operator               3    965μs    0.0%   322μs   1.97MiB    0.5%   673KiB
-      row normalization                   3    208μs    0.0%  69.4μs     0.00B    0.0%    0.00B
-      build restriction                   3    681ns    0.0%   227ns      144B    0.0%    48.0B
-    coarse solver setup                   2   2.36ms    0.1%  1.18ms   1.85MiB    0.4%   948KiB
-      extend_hierarchy!                   3   2.27ms    0.1%   757μs   1.83MiB    0.4%   624KiB
-        improve candidates                3   1.04ms    0.0%   347μs     0.00B    0.0%    0.00B
-        restriction setup                 3    338μs    0.0%   113μs    892KiB    0.2%   297KiB
-        strength                          3    330μs    0.0%   110μs    598KiB    0.1%   199KiB
-        RAP                               3    286μs    0.0%  95.4μs    199KiB    0.0%  66.2KiB
-        fit candidates                    3    243μs    0.0%  80.9μs    137KiB    0.0%  45.6KiB
-        aggregation                       3   18.4μs    0.0%  6.12μs   31.2KiB    0.0%  10.4KiB
-      coarse solver setup                 2   68.9μs    0.0%  34.5μs   6.38KiB    0.0%  3.19KiB
-      ml setup                            2   8.15μs    0.0%  4.08μs      448B    0.0%     224B
-      prologue                            2   6.20μs    0.0%  3.10μs   13.9KiB    0.0%  6.93KiB
-Galerkin CG                               1    130ms    4.9%   130ms   0.96MiB    0.2%  0.96MiB
-  Presmoother                            60   51.4ms    1.9%   857μs     0.00B    0.0%    0.00B
-  Postsmoother                           60   49.8ms    1.9%   831μs     0.00B    0.0%    0.00B
-  Residual eval                          60   15.0ms    0.6%   250μs     0.00B    0.0%    0.00B
-  Coarse solve                           20   4.08ms    0.2%   204μs   39.3KiB    0.0%  1.97KiB
-    Presmoother                          20   1.81ms    0.1%  90.6μs     0.00B    0.0%    0.00B
-    Postsmoother                         20   1.56ms    0.1%  77.9μs     0.00B    0.0%    0.00B
-    Residual eval                        20    517μs    0.0%  25.8μs     0.00B    0.0%    0.00B
-    Restriction                          20   38.1μs    0.0%  1.90μs     0.00B    0.0%    0.00B
-    Coarse solve                         20   32.4μs    0.0%  1.62μs     0.00B    0.0%    0.00B
-    Prolongation                         20   17.3μs    0.0%   866ns     0.00B    0.0%    0.00B
-  Prolongation                           60   3.37ms    0.1%  56.2μs     0.00B    0.0%    0.00B
-  Restriction                            60   3.23ms    0.1%  53.8μs     0.00B    0.0%    0.00B
-CG                                        1   62.3ms    2.4%  62.3ms   92.8KiB    0.0%  92.8KiB
-Rediscretization CG                       1   48.7ms    1.8%  48.7ms   1.58MiB    0.4%  1.58MiB
-  Presmoother                           102   15.2ms    0.6%   149μs     0.00B    0.0%    0.00B
-  Postsmoother                          102   14.9ms    0.6%   146μs     0.00B    0.0%    0.00B
-  Residual eval                         102   4.97ms    0.2%  48.8μs     0.00B    0.0%    0.00B
-  Prolongation                          102   4.25ms    0.2%  41.7μs     0.00B    0.0%    0.00B
-  Restriction                           102   4.25ms    0.2%  41.7μs     0.00B    0.0%    0.00B
-  Coarse solve                           34   1.10ms    0.0%  32.3μs   79.7KiB    0.0%  2.34KiB
-    Presmoother                          68    313μs    0.0%  4.60μs     0.00B    0.0%    0.00B
-    Postsmoother                         68    292μs    0.0%  4.30μs     0.00B    0.0%    0.00B
-    Residual eval                        68    199μs    0.0%  2.93μs     0.00B    0.0%    0.00B
-    Restriction                          68    112μs    0.0%  1.64μs     0.00B    0.0%    0.00B
-    Prolongation                         68   75.6μs    0.0%  1.11μs     0.00B    0.0%    0.00B
-    Coarse solve                         34   10.6μs    0.0%   313ns     0.00B    0.0%    0.00B
-<span class="sgr1">-----------------------------------------------------------------------------------------------</span></code></pre><h2 id="linear-elasticity-plain-program"><a class="docs-heading-anchor" href="#linear-elasticity-plain-program">Plain program</a><a id="linear-elasticity-plain-program-1"></a><a class="docs-heading-anchor-permalink" href="#linear-elasticity-plain-program" title="Permalink"></a></h2><p>Here follows a version of the program without any comments. The file is also available here: <a href="../linear_elasticity.jl"><code>linear_elasticity.jl</code></a>.</p><pre><code class="language-julia hljs">using Ferrite, FerriteGmsh, FerriteMultigrid, AlgebraicMultigrid
+Rediscretization only                     1    612ms   55.9%   612ms   45.8MiB   39.8%  45.8MiB
+  init                                    1    285ms   26.0%   285ms   29.3MiB   25.5%  29.3MiB
+    extend_hierarchy!                     1    284ms   26.0%   284ms   28.8MiB   25.0%  28.8MiB
+      setup coarse operator               1    174ms   15.9%   174ms   13.9MiB   12.1%  13.9MiB
+      assemble coarse operator            1    106ms    9.7%   106ms   6.27MiB    5.4%  6.27MiB
+      assemble transfer operator          1   2.66ms    0.2%  2.66ms   31.4KiB    0.0%  31.4KiB
+      setup transfer operator             1    922μs    0.1%   922μs   8.50MiB    7.4%  8.50MiB
+      row normalization                   1   34.5μs    0.0%  34.5μs     0.00B    0.0%    0.00B
+    coarse solver setup                   1    533μs    0.0%   533μs    546KiB    0.5%   546KiB
+      extend_hierarchy!                   2    474μs    0.0%   237μs    533KiB    0.5%   267KiB
+        fit candidates                    2    143μs    0.0%  71.4μs   82.2KiB    0.1%  41.1KiB
+        improve candidates                2    112μs    0.0%  55.8μs     0.00B    0.0%    0.00B
+        RAP                               2   90.5μs    0.0%  45.2μs    175KiB    0.1%  87.4KiB
+        restriction setup                 2   72.8μs    0.0%  36.4μs    192KiB    0.2%  96.0KiB
+        strength                          2   32.0μs    0.0%  16.0μs   51.6KiB    0.0%  25.8KiB
+        aggregation                       2   18.0μs    0.0%  9.02μs   24.0KiB    0.0%  12.0KiB
+      coarse solver setup                 1   39.5μs    0.0%  39.5μs   3.19KiB    0.0%  3.19KiB
+      prologue                            1   9.18μs    0.0%  9.18μs   6.93KiB    0.0%  6.93KiB
+      ml setup                            1   6.22μs    0.0%  6.22μs      224B    0.0%     224B
+  solve!                                  1   73.9ms    6.7%  73.9ms   4.78MiB    4.2%  4.78MiB
+    Presmoother                         101   25.4ms    2.3%   251μs     0.00B    0.0%    0.00B
+    Postsmoother                        101   25.3ms    2.3%   251μs     0.00B    0.0%    0.00B
+    Residual eval                       101   8.33ms    0.8%  82.5μs     0.00B    0.0%    0.00B
+    Coarse solve                        101   2.32ms    0.2%  23.0μs    233KiB    0.2%  2.30KiB
+      Presmoother                       202    821μs    0.1%  4.06μs     0.00B    0.0%    0.00B
+      Postsmoother                      202    807μs    0.1%  4.00μs     0.00B    0.0%    0.00B
+      Residual eval                     202    243μs    0.0%  1.20μs     0.00B    0.0%    0.00B
+      Restriction                       202    116μs    0.0%   575ns     0.00B    0.0%    0.00B
+      Prolongation                      202   99.4μs    0.0%   492ns     0.00B    0.0%    0.00B
+      Coarse solve                      101   15.2μs    0.0%   151ns     0.00B    0.0%    0.00B
+    Restriction                         101   1.59ms    0.1%  15.7μs     0.00B    0.0%    0.00B
+    Prolongation                        101   1.48ms    0.1%  14.6μs     0.00B    0.0%    0.00B
+Galerkin only                             1    204ms   18.6%   204ms   29.5MiB   25.7%  29.5MiB
+  solve!                                  1    174ms   15.9%   174ms   10.7MiB    9.3%  10.7MiB
+    Presmoother                         228   57.3ms    5.2%   251μs     0.00B    0.0%    0.00B
+    Postsmoother                        228   57.2ms    5.2%   251μs     0.00B    0.0%    0.00B
+    Residual eval                       228   18.8ms    1.7%  82.3μs     0.00B    0.0%    0.00B
+    Coarse solve                        228   12.7ms    1.2%  55.5μs    426KiB    0.4%  1.87KiB
+      Presmoother                       228   5.15ms    0.5%  22.6μs     0.00B    0.0%    0.00B
+      Postsmoother                      228   5.09ms    0.5%  22.3μs     0.00B    0.0%    0.00B
+      Residual eval                     228   1.60ms    0.1%  7.01μs     0.00B    0.0%    0.00B
+      Restriction                       228    249μs    0.0%  1.09μs     0.00B    0.0%    0.00B
+      Prolongation                      228    171μs    0.0%   751ns     0.00B    0.0%    0.00B
+      Coarse solve                      228   47.8μs    0.0%   210ns     0.00B    0.0%    0.00B
+    Restriction                         228   3.54ms    0.3%  15.5μs     0.00B    0.0%    0.00B
+    Prolongation                        228   3.24ms    0.3%  14.2μs     0.00B    0.0%    0.00B
+  init                                    1   29.2ms    2.7%  29.2ms   18.9MiB   16.4%  18.9MiB
+    extend_hierarchy!                     1   28.3ms    2.6%  28.3ms   17.8MiB   15.5%  17.8MiB
+      build prolongator                   1   25.2ms    2.3%  25.2ms   8.56MiB    7.4%  8.56MiB
+        setup transfer operator           1   22.4ms    2.0%  22.4ms   8.50MiB    7.4%  8.50MiB
+        assemble transfer operator        1   2.74ms    0.3%  2.74ms   31.4KiB    0.0%  31.4KiB
+        row normalization                 1   35.6μs    0.0%  35.6μs     0.00B    0.0%    0.00B
+      RAP                                 1   3.13ms    0.3%  3.13ms   9.23MiB    8.0%  9.23MiB
+      build restriction                   1    210ns    0.0%   210ns     48.0B    0.0%    48.0B
+    coarse solver setup                   1    881μs    0.1%   881μs   1.05MiB    0.9%  1.05MiB
+      extend_hierarchy!                   1    811μs    0.1%   811μs   1.03MiB    0.9%  1.03MiB
+        improve candidates                1    275μs    0.0%   275μs     0.00B    0.0%    0.00B
+        restriction setup                 1    197μs    0.0%   197μs    740KiB    0.6%   740KiB
+        RAP                               1    148μs    0.0%   148μs   55.0KiB    0.0%  55.0KiB
+        strength                          1   93.8μs    0.0%  93.8μs    188KiB    0.2%   188KiB
+        fit candidates                    1   88.3μs    0.0%  88.3μs   56.7KiB    0.0%  56.7KiB
+        aggregation                       1   3.50μs    0.0%  3.50μs   7.23KiB    0.0%  7.23KiB
+      coarse solver setup                 1   57.8μs    0.0%  57.8μs   10.3KiB    0.0%  10.3KiB
+      ml setup                            1   4.96μs    0.0%  4.96μs      224B    0.0%     224B
+      prologue                            1   2.95μs    0.0%  2.95μs   6.93KiB    0.0%  6.93KiB
+Build preconditioner                      2    175ms   16.0%  87.6ms   38.1MiB   33.1%  19.0MiB
+  pmultigrid hierarchy                    2    131ms   12.0%  65.4ms   31.3MiB   27.2%  15.6MiB
+    extend_hierarchy!                     2   22.2ms    2.0%  11.1ms   26.5MiB   23.0%  13.2MiB
+      RAP                                 1   14.4ms    1.3%  14.4ms   9.23MiB    8.0%  9.23MiB
+      build prolongator                   1   3.69ms    0.3%  3.69ms   8.56MiB    7.4%  8.56MiB
+        assemble transfer operator        1   2.64ms    0.2%  2.64ms   31.4KiB    0.0%  31.4KiB
+        setup transfer operator           1    974μs    0.1%   974μs   8.50MiB    7.4%  8.50MiB
+        row normalization                 1   35.4μs    0.0%  35.4μs     0.00B    0.0%    0.00B
+      assemble transfer operator          1   2.63ms    0.2%  2.63ms   31.4KiB    0.0%  31.4KiB
+      setup transfer operator             1    896μs    0.1%   896μs   8.50MiB    7.4%  8.50MiB
+      assemble coarse operator            1    352μs    0.0%   352μs   27.7KiB    0.0%  27.7KiB
+      setup coarse operator               1    123μs    0.0%   123μs    107KiB    0.1%   107KiB
+      row normalization                   1   35.1μs    0.0%  35.1μs     0.00B    0.0%    0.00B
+      build restriction                   1    100ns    0.0%   100ns     48.0B    0.0%    48.0B
+    coarse solver setup                   2   1.36ms    0.1%   680μs   1.58MiB    1.4%   808KiB
+      extend_hierarchy!                   3   1.25ms    0.1%   416μs   1.55MiB    1.3%   528KiB
+        improve candidates                3    385μs    0.0%   128μs     0.00B    0.0%    0.00B
+        RAP                               3    244μs    0.0%  81.4μs    230KiB    0.2%  76.6KiB
+        fit candidates                    3    240μs    0.0%  80.0μs    139KiB    0.1%  46.3KiB
+        restriction setup                 3    228μs    0.0%  75.9μs    932KiB    0.8%   311KiB
+        strength                          3    124μs    0.0%  41.5μs    239KiB    0.2%  79.7KiB
+        aggregation                       3   18.2μs    0.0%  6.08μs   31.2KiB    0.0%  10.4KiB
+      coarse solver setup                 2   91.7μs    0.0%  45.8μs   13.5KiB    0.0%  6.76KiB
+      ml setup                            2   9.64μs    0.0%  4.82μs      448B    0.0%     224B
+      prologue                            2   3.65μs    0.0%  1.82μs   13.9KiB    0.0%  6.93KiB
+CG                                        1   61.0ms    5.6%  61.0ms   92.8KiB    0.1%  92.8KiB
+Galerkin CG                               1   22.4ms    2.0%  22.4ms    826KiB    0.7%   826KiB
+  Presmoother                            29   7.31ms    0.7%   252μs     0.00B    0.0%    0.00B
+  Postsmoother                           29   7.26ms    0.7%   250μs     0.00B    0.0%    0.00B
+  Residual eval                          29   2.40ms    0.2%  82.7μs     0.00B    0.0%    0.00B
+  Coarse solve                           29   1.63ms    0.1%  56.4μs   56.1KiB    0.0%  1.93KiB
+    Postsmoother                         29    661μs    0.1%  22.8μs     0.00B    0.0%    0.00B
+    Presmoother                          29    647μs    0.1%  22.3μs     0.00B    0.0%    0.00B
+    Residual eval                        29    219μs    0.0%  7.53μs     0.00B    0.0%    0.00B
+    Restriction                          29   32.1μs    0.0%  1.11μs     0.00B    0.0%    0.00B
+    Prolongation                         29   22.1μs    0.0%   764ns     0.00B    0.0%    0.00B
+    Coarse solve                         29   7.17μs    0.0%   247ns     0.00B    0.0%    0.00B
+  Restriction                            29    448μs    0.0%  15.4μs     0.00B    0.0%    0.00B
+  Prolongation                           29    435μs    0.0%  15.0μs     0.00B    0.0%    0.00B
+Rediscretization CG                       1   21.0ms    1.9%  21.0ms    813KiB    0.7%   813KiB
+  Presmoother                            28   7.15ms    0.7%   255μs     0.00B    0.0%    0.00B
+  Postsmoother                           28   7.09ms    0.6%   253μs     0.00B    0.0%    0.00B
+  Residual eval                          28   2.34ms    0.2%  83.6μs     0.00B    0.0%    0.00B
+  Coarse solve                           28    694μs    0.1%  24.8μs   66.0KiB    0.1%  2.36KiB
+    Presmoother                          56    234μs    0.0%  4.18μs     0.00B    0.0%    0.00B
+    Postsmoother                         56    222μs    0.0%  3.97μs     0.00B    0.0%    0.00B
+    Residual eval                        56    106μs    0.0%  1.89μs     0.00B    0.0%    0.00B
+    Restriction                          56   34.6μs    0.0%   618ns     0.00B    0.0%    0.00B
+    Prolongation                         56   27.6μs    0.0%   494ns     0.00B    0.0%    0.00B
+    Coarse solve                         28   5.16μs    0.0%   184ns     0.00B    0.0%    0.00B
+  Prolongation                           28    442μs    0.0%  15.8μs     0.00B    0.0%    0.00B
+  Restriction                            28    437μs    0.0%  15.6μs     0.00B    0.0%    0.00B
+<span class="sgr1">-----------------------------------------------------------------------------------------------</span></code></pre><h2 id="linear-elasticity-plain-program"><a class="docs-heading-anchor" href="#linear-elasticity-plain-program">Plain program</a><a id="linear-elasticity-plain-program-1"></a><a class="docs-heading-anchor-permalink" href="#linear-elasticity-plain-program" title="Permalink"></a></h2><p>Here follows a version of the program without any comments. The file is also available here: <a href="../linear_elasticity.jl"><code>linear_elasticity.jl</code></a>.</p><pre><code class="language-julia hljs">using Ferrite, FerriteGmsh, FerriteOperators, FerriteMultigrid, AlgebraicMultigrid
 using Downloads: download
 using IterativeSolvers
 using TimerOutputs
@@ -452,20 +491,19 @@ function linear_elasticity_2d(C)
     cellvalues = CellValues(qr, ip)
     facetvalues = FacetValues(qr_face, ip)
 
-    dh = DofHandler(grid)
-    add!(dh, :u, ip)
-    close!(dh)
+    dhh = DofHandlerHierarchy(grid, 2)
+    add!(dhh, :u, [ip_coarse, ip])
+    close!(dhh)
 
-    dh_coarse = DofHandler(grid)
-    add!(dh_coarse, :u, ip_coarse)
-    close!(dh_coarse)
-
-    ch = ConstraintHandler(dh)
-    add!(ch, Dirichlet(:u, getfacetset(grid, &quot;bottom&quot;), (x, t) -&gt; 0.0, 2))
-    add!(ch, Dirichlet(:u, getfacetset(grid, &quot;left&quot;), (x, t) -&gt; 0.0, 1))
-    close!(ch)
+    chh = ConstraintHandlerHierarchy(dhh)
+    add!(chh, dh-&gt;Dirichlet(:u, getfacetset(dh.grid, &quot;bottom&quot;), (x, t) -&gt; 0.0, 2))
+    add!(chh, dh-&gt;Dirichlet(:u, getfacetset(dh.grid, &quot;left&quot;), (x, t) -&gt; 0.0, 1))
+    close!(chh)
 
     traction(x) = Vec(0.0, 20.0e3 * x[1])
+
+    dh = dhh[end]
+    ch = chh[end]
 
     A = allocate_matrix(dh)
     assemble_global!(A, dh, cellvalues, C)
@@ -474,7 +512,49 @@ function linear_elasticity_2d(C)
     assemble_external_forces!(b, dh, getfacetset(grid, &quot;top&quot;), facetvalues, traction)
     apply!(A, b, ch)
 
-    return A, b, dh, dh_coarse, ch
+    return A, b, dhh, chh
+end
+
+&quot;&quot;&quot;
+    LinearElasticityIntegrator{TC, QRC} &lt;: AbstractBilinearIntegrator
+
+Multigrid problem for linear elasticity.
+Implements the FerriteOperators `AbstractBilinearIntegrator` interface.
+&quot;&quot;&quot;
+struct LinearElasticityIntegrator{TC &lt;: SymmetricTensor, QRC} &lt;: FerriteOperators.AbstractBilinearIntegrator
+    ℂ::TC  # material stiffness tensor (4th order)
+    qrc::QRC
+end
+
+struct LinearElasticityElementCache{CV, TC} &lt;: FerriteOperators.AbstractVolumetricElementCache
+    cv::CV
+    ℂ::TC
+end
+
+function FerriteOperators.setup_element_cache(problem::LinearElasticityIntegrator, sdh::SubDofHandler)
+    qr     = getquadraturerule(problem.qrc, sdh)
+    ip     = Ferrite.getfieldinterpolation(sdh, first(Ferrite.getfieldnames(sdh)))
+    first_cell = getcells(Ferrite.get_grid(sdh.dh), first(sdh.cellset))
+    ip_geo = Ferrite.geometric_interpolation(typeof(first_cell))
+    cv     = CellValues(qr, ip, ip_geo)
+    return LinearElasticityElementCache(cv, problem.ℂ)
+end
+
+function FerriteOperators.assemble_element!(Ke::AbstractMatrix, cell::CellCache, cache::LinearElasticityElementCache, p)
+    reinit!(cache.cv, cell)
+    fill!(Ke, 0.0)
+    ℂ = cache.ℂ
+    for q_point in 1:getnquadpoints(cache.cv)
+        dΩ = getdetJdV(cache.cv, q_point)
+        for i in 1:getnbasefunctions(cache.cv)
+            ∇ˢʸᵐNᵢ = shape_symmetric_gradient(cache.cv, q_point, i)
+            for j in 1:getnbasefunctions(cache.cv)
+                ∇ˢʸᵐNⱼ = shape_symmetric_gradient(cache.cv, q_point, j)
+                Ke[i, j] += (∇ˢʸᵐNᵢ ⊡ ℂ ⊡ ∇ˢʸᵐNⱼ) * dΩ
+            end
+        end
+    end
+    return Ke
 end
 
 function create_nns(dh, fieldname = first(dh.field_names))
@@ -500,9 +580,9 @@ end
 
 using FerriteMultigrid
 
-A, b, dh, dh_coarse, ch = linear_elasticity_2d(C);
+A, b, dhh, chh = linear_elasticity_2d(C);
 
-B = create_nns(dh_coarse)
+B = create_nns(dhh[1])
 
 reset_timer!()
 
@@ -511,18 +591,18 @@ pcoarse_solver = SmoothedAggregationCoarseSolver(; B)
 @timeit &quot;CG&quot; x_cg = IterativeSolvers.cg(A, b; maxiter = 1000, verbose=false)
 
 config_gal = pmultigrid_config(coarse_strategy = Galerkin())
-@timeit &quot;Galerkin only&quot; x_gal, res_gal = solve(A, b, dh, ch, config_gal; pcoarse_solver, log=true, maxiter = 1000, rtol = 1e-10)
+@timeit &quot;Galerkin only&quot; x_gal, res_gal = solve(A, b, dhh, chh, config_gal; pcoarse_solver, log=true, maxiter = 1000, rtol = 1e-10)
 
-builder_gal = PMultigridPreconBuilder(dh, ch, config_gal; pcoarse_solver)
+builder_gal = PMultigridPreconBuilder(dhh, chh, config_gal; pcoarse_solver)
 @timeit &quot;Build preconditioner&quot; Pl_gal = builder_gal(A)[1]
 @timeit &quot;Galerkin CG&quot; x_gcg, res_gcg = IterativeSolvers.cg(A, b; Pl = Pl_gal, maxiter = 1000, log=true, verbose=false)
 
 # Rediscretization Coarsening Strategy
-config_red = pmultigrid_config(coarse_strategy = Rediscretization(LinearElasticityMultigrid(C)))
-@timeit &quot;Rediscretization only&quot; x_red, res_red = solve(A, b, dh, ch, config_red; pcoarse_solver, log=true, maxiter = 1000, rtol = 1e-10)
+config_red = pmultigrid_config(coarse_strategy = Rediscretization(LinearElasticityIntegrator(C, QuadratureRuleCollection(7))))
+@timeit &quot;Rediscretization only&quot; x_red, res_red = solve(A, b, dhh, chh, config_red; pcoarse_solver, log=true, maxiter = 1000, rtol = 1e-10)
 
-builder_red = PMultigridPreconBuilder(dh, ch, config_red; pcoarse_solver)
+builder_red = PMultigridPreconBuilder(dhh, chh, config_red; pcoarse_solver)
 @timeit &quot;Build preconditioner&quot; Pl_red = builder_red(A)[1]
 @timeit &quot;Rediscretization CG&quot; x_rcg, res_rcg = IterativeSolvers.cg(A, b; Pl = Pl_red, maxiter = 1000, log=true, verbose=false)
 
-print_timer(title = &quot;Analysis with $(getncells(dh.grid)) elements&quot;, linechars = :ascii)</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../">« Home</a><a class="docs-footer-nextpage" href="../hyperelasticity/">Nonlinear Elasticity »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Monday 20 April 2026 19:02">Monday 20 April 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+print_timer(title = &quot;Analysis with $(getncells(dhh[end].grid)) elements&quot;, linechars = :ascii)</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../">« Home</a><a class="docs-footer-nextpage" href="../hyperelasticity/">Nonlinear Elasticity »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Tuesday 21 April 2026 22:04">Tuesday 21 April 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
