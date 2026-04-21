@@ -28,6 +28,9 @@ jobs:
 
       - uses: julia-actions/cache@v3
 
+      - run: julia -e 'using Pkg; Pkg.Registry.add(RegistrySpec(url = "https://github.com/termi-official/termis-backyard"))'
+        shell: bash
+
       - name: Install dependencies
         run: julia --project=docs -e 'using Pkg; Pkg.instantiate(); Pkg.precompile()'
 

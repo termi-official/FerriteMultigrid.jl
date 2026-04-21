@@ -4,8 +4,8 @@
 [![](https://img.shields.io/badge/docs-dev-blue.svg)](https://termi-official.github.io/FerriteMultigrid.jl/dev/)
 
 
-**FerriteMultigrid.jl** is a lightweight, flexible **p-multigrid framework** designed for high-order finite element problems in Julia.  
-It is built on top of [Ferrite.jl](https://github.com/Ferrite-FEM/Ferrite.jl) and leverages [AlgebraicMultigrid.jl](https://github.com/JuliaLinearAlgebra/AlgebraicMultigrid.jl) as the coarse-grid solver once the approximation is reduced to \( p = 1 \).
+**FerriteMultigrid.jl** is a lightweight, flexible polynomial and geometric **multigrid framework** designed for high-order finite element problems in Julia.
+It is built on top of [Ferrite.jl](https://github.com/Ferrite-FEM/Ferrite.jl) and leverages [AlgebraicMultigrid.jl](https://github.com/JuliaLinearAlgebra/AlgebraicMultigrid.jl) as the potential coarse-grid solver once the approximation is reduced to \( p = 1 \). Users can also combine polynomial and geometric multigrid methods.
 
 
 ## Example Usage
@@ -13,14 +13,14 @@ It is built on top of [Ferrite.jl](https://github.com/Ferrite-FEM/Ferrite.jl) an
 ```julia
 using FerriteMultigrid
 
-# Define a 1D diffusion problem with p = 2 and 3 quadrature points.
-K, f, fe_space = poisson(1000, 2, 3)
+# Define a 1D diffusion problem with p = 2 for the fine grid and p = 1 for the coarse grid and 3 quadrature points.
+K, f, dhh, chh = poisson(1000, [1, 2], 3)
 
 # Define a p-multigrid configuration
-config = pmultigrid_config() # default config (galerkin as coarsening strategy and direct projection (i.e., from p to 1 directly))
+config = pmultigrid_config()
 
 # Solve using the p-multigrid solver
-x, res = solve(K, f, fe_space, config; log = true, rtol = 1e-10)
+x, res = solve(K, f, dhh, chh, config; log = true, rtol = 1e-10)
 ```
 
 ## Acknowledgement
