@@ -57,12 +57,7 @@ export
     Rediscretization, 
     SmoothedAggregationCoarseSolver,
     RugeStubenCoarseSolver,
-    pmultigrid_config,
     Pinv,
-    MultigridPreconBuilder,
-    PMultigridPreconBuilder,
-    GMultigridCoarseSolver,
-    GMultigridCoarseSolverBuilder,
     solve,
     init,
     # Handler hierarchies
@@ -71,12 +66,17 @@ export
     SubDofHandlerHierarchy,
     build_pmg_dofhandler_hierarchy,
     # Polynomial multigrid
+    PMultigridPreconBuilder,
+    PMultigridConfiguration,
+    pmultigrid_config,
     pmultigrid,
     # Geometric multigrid
     uniform_refinement,
     GridHierarchy,
     GMultigridConfiguration,
     gmultigrid_config,
+    GMultigridCoarseSolver,
+    GMultigridCoarseSolverBuilder,
     gmultigrid
 
 end
