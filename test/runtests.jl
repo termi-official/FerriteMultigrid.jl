@@ -7,6 +7,6 @@ include("test_diffusion_element.jl")
 
 include("test_prolongator.jl")
 include("test_parameters.jl")
-# include("test_examples.jl")
+include("test_examples.jl")
 include("test_precs.jl")
 include("test_geometric.jl")

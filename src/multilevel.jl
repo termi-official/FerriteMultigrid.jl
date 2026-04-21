@@ -56,23 +56,13 @@ function solve!(solt::MGSolver, args...; kwargs...)
 end
 
 """
-    solve(A, b, dh, ch, config; pcoarse_solver, kwargs...)
     solve(A, b, dhh, chh, config; pcoarse_solver, kwargs...)
 
-Solve `Ax = b` using polynomial multigrid.  Accepts either a single
-`AbstractDofHandler` / `ConstraintHandler` pair (hierarchy built automatically)
-or a pre-built `DofHandlerHierarchy` / `ConstraintHandlerHierarchy`.
+Solve `Ax = b` using polynomial multigrid given a pre-built
+`DofHandlerHierarchy` / `ConstraintHandlerHierarchy`.
 `kwargs` are forwarded to both the multigrid setup and the iterative solve
 (e.g. `maxiter`, `reltol`, `log`).
 """
-function solve(A::AbstractMatrix, b::AbstractVector,
-               dh::AbstractDofHandler, ch::ConstraintHandler,
-               pgrid_config::PMultigridConfiguration = pmultigrid_config();
-               pcoarse_solver = SmoothedAggregationCoarseSolver(), kwargs...)
-    @timeit_debug "init"   solver = init(A, b, dh, ch, pgrid_config; pcoarse_solver, kwargs...)
-    @timeit_debug "solve!" solve!(solver; kwargs...)
-end
-
 function solve(A::AbstractMatrix, b::AbstractVector,
                dhh::DofHandlerHierarchy, chh::ConstraintHandlerHierarchy,
                pgrid_config::PMultigridConfiguration = pmultigrid_config();
@@ -82,18 +72,10 @@ function solve(A::AbstractMatrix, b::AbstractVector,
 end
 
 """
-    init(A, b, dh, ch, config; pcoarse_solver, kwargs...) -> MGSolver
     init(A, b, dhh, chh, config; pcoarse_solver, kwargs...) -> MGSolver
 
 Build a polynomial multigrid solver and return an [`MGSolver`](@ref).
 """
-function init(A, b, dh::AbstractDofHandler, ch::ConstraintHandler,
-              pgrid_config::PMultigridConfiguration = pmultigrid_config();
-              pcoarse_solver = SmoothedAggregationCoarseSolver(), kwargs...)
-    ml = pmultigrid(A, dh, ch, pgrid_config, pcoarse_solver; kwargs...)
-    return MGSolver(ml, b)
-end
-
 function init(A, b, dhh::DofHandlerHierarchy, chh::ConstraintHandlerHierarchy,
               pgrid_config::PMultigridConfiguration = pmultigrid_config();
               pcoarse_solver = SmoothedAggregationCoarseSolver(), kwargs...)

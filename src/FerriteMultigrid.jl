@@ -2,7 +2,6 @@ module FerriteMultigrid
 
 using Reexport
 using LinearAlgebra
-using TimerOutputs
 import LinearSolve
 using SparseArrays
 import SparseArrays: AbstractSparseMatrixCSC
@@ -64,7 +63,6 @@ export
     DofHandlerHierarchy,
     ConstraintHandlerHierarchy,
     SubDofHandlerHierarchy,
-    build_pmg_dofhandler_hierarchy,
     # Polynomial multigrid
     PMultigridPreconBuilder,
     PMultigridConfiguration,

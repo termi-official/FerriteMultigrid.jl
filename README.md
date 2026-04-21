@@ -4,8 +4,8 @@
 [![](https://img.shields.io/badge/docs-dev-blue.svg)](https://termi-official.github.io/FerriteMultigrid.jl/dev/)
 
 
-**FerriteMultigrid.jl** is a lightweight, flexible **p-multigrid framework** designed for high-order finite element problems in Julia.  
-It is built on top of [Ferrite.jl](https://github.com/Ferrite-FEM/Ferrite.jl) and leverages [AlgebraicMultigrid.jl](https://github.com/JuliaLinearAlgebra/AlgebraicMultigrid.jl) as the coarse-grid solver once the approximation is reduced to \( p = 1 \).
+**FerriteMultigrid.jl** is a lightweight, flexible polynomial and geometric **multigrid framework** designed for high-order finite element problems in Julia.
+It is built on top of [Ferrite.jl](https://github.com/Ferrite-FEM/Ferrite.jl) and leverages [AlgebraicMultigrid.jl](https://github.com/JuliaLinearAlgebra/AlgebraicMultigrid.jl) as the potential coarse-grid solver once the approximation is reduced to \( p = 1 \). Users can also combine polynomial and geometric multigrid methods.
 
 
 ## Example Usage
