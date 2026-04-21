@@ -56,41 +56,6 @@ This function is the main api to instantiate [`PMultigridConfiguration`](@ref).
 """
 pmultigrid_config(;coarse_strategy = Galerkin()) = PMultigridConfiguration(coarse_strategy)
 
-"""
-    build_pmg_dofhandler_hierarchy(dh, ch, pgrid_config) -> (DofHandlerHierarchy, ConstraintHandlerHierarchy)
-
-Build the full polynomial-order hierarchy for polynomial multigrid starting from the
-fine-grid handler `dh` and constraint handler `ch`, using the projection strategy in
-`pgrid_config`.
-
-Returns a `(DofHandlerHierarchy, ConstraintHandlerHierarchy)` pair where index 1 is the
-coarsest level (order 1) and index `end` is the finest level (`dh` and `ch`).
-
-This is the standalone convenience function that underpins `pmultigrid(A, dh, ch, ...)`.
-"""
-function build_pmg_dofhandler_hierarchy(
-        dh::AbstractDofHandler,
-        ch::ConstraintHandler,
-        pgrid_config::PMultigridConfiguration,
-    )
-    degree = order(dh)
-
-    # Build from finest to coarsest, always reducing to p=1 in one step per level
-    dhs = AbstractDofHandler[dh]
-    chs = ConstraintHandler[ch]
-
-    while degree > 1
-        degree      = degree - 1
-        fine_dh     = dhs[end]
-        fine_ch     = chs[end]
-        coarse_dh, coarse_ch = coarsen_order(fine_dh, fine_ch, degree)
-        push!(dhs, coarse_dh)
-        push!(chs, coarse_ch)
-    end
-
-    # Reverse so that index 1 = coarsest (consistent with GridHierarchy convention)
-    return DofHandlerHierarchy(reverse(dhs)), ConstraintHandlerHierarchy(reverse(chs))
-end
 
 """
     pmultigrid(A, dhh, chh, pgrid_config, pcoarse_solver, [Val{bs}]; kwargs...)
@@ -105,7 +70,7 @@ This is the primary dispatch; the convenience overload taking a single `DofHandl
 function pmultigrid(
     A::TA,
     dhh::DofHandlerHierarchy,
-    chh::ConstraintHandlerHierarchy,
+    chh::Union{ConstraintHandlerHierarchy, Nothing},
     pgrid_config::PMultigridConfiguration,
     pcoarse_solver,
     ::Type{Val{bs}} = Val{1};
@@ -118,6 +83,7 @@ function pmultigrid(
 
     n_levels = length(dhh) - 1
     @assert n_levels >= 1 "DofHandlerHierarchy must have at least 2 levels"
+    chh !== nothing && @assert length(dhh) == length(chh) "Dof and constraint handler hierarchies must match"
 
     levels = Vector{Level{TA,TA,Adjoint{T,TA}}}()
     w = MultiLevelWorkspace(Val{bs}, eltype(A))
@@ -126,12 +92,19 @@ function pmultigrid(
     cs    = pgrid_config.coarse_strategy
     cur_A = A
 
+    fine_ch = nothing
+    coarse_ch = nothing
     # Iterate from finest (index end) down to coarsest (index 1)
     for k in n_levels:-1:1
+        # Unpack dh pair
         fine_dh   = dhh[k+1]
-        fine_ch   = chh[k+1]
         coarse_dh = dhh[k]
-        coarse_ch = chh[k]
+
+        # Unpack ch pair if available
+        if chh !== nothing
+            fine_ch   = chh[k+1]
+            coarse_ch = chh[k]
+        end
 
         @timeit_debug "extend_hierarchy!" cur_A = extend_hierarchy!(
             levels, fine_dh, fine_ch, coarse_dh, coarse_ch, cur_A, cs, u, p)
@@ -143,27 +116,6 @@ function pmultigrid(
 
     coarse_solver = @timeit_debug "coarse solver setup" pcoarse_solver(cur_A)
     return MultiLevel(levels, cur_A, coarse_solver, presmoother, postsmoother, w)
-end
-
-"""
-    pmultigrid(A, dh, ch, pgrid_config, pcoarse_solver, [Val{bs}]; kwargs...)
-
-Convenience dispatch: builds the `DofHandlerHierarchy` / `ConstraintHandlerHierarchy`
-automatically via [`build_pmg_dofhandler_hierarchy`](@ref) and then calls the
-hierarchy-based `pmultigrid`.
-"""
-function pmultigrid(
-    A::TA,
-    dh::AbstractDofHandler,
-    ch::ConstraintHandler,
-    pgrid_config::PMultigridConfiguration,
-    pcoarse_solver,
-    ::Type{Val{bs}} = Val{1};
-    kwargs...,
-    ) where {T,V,bs,TA<:SparseMatrixCSC{T,V}}
-
-    dhh, chh = build_pmg_dofhandler_hierarchy(dh, ch, pgrid_config)
-    return pmultigrid(A, dhh, chh, pgrid_config, pcoarse_solver, Val{bs}; kwargs...)
 end
 
 function extend_hierarchy!(levels, fine_dh, fine_ch, coarse_dh, coarse_ch, A, cs::Galerkin, u, p)
@@ -180,7 +132,7 @@ function extend_hierarchy!(levels, fine_dh, fine_ch, coarse_dh, coarse_ch, A, cs
     push!(levels, Level(A, P, R))
 
     op = @timeit_debug "setup coarse operator" setup_operator(cs.strategy, cs.integrator, coarse_dh)
-    @timeit_debug "assemble coarse operator" update_operator!(op, p)
+    @timeit_debug "assemble coarse operator" update_operator!(op, p) # TODO might call update_linearization! instead.
     apply!(op.A, coarse_ch)
     A = op.A
     return A

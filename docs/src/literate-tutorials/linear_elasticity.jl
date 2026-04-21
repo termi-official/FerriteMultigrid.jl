@@ -16,7 +16,7 @@
 # 1. Fourth-order `Lagrange` shape functions are used for field approximation: `ip = Lagrange{RefTriangle,4}()^2`.
 # 2. High-order quadrature points are used to accommodate the fourth-order shape functions: `qr = QuadratureRule{RefTriangle}(8)`.
 #
-using Ferrite, FerriteGmsh, FerriteMultigrid, AlgebraicMultigrid
+using Ferrite, FerriteGmsh, FerriteOperators, FerriteMultigrid, AlgebraicMultigrid
 using Downloads: download
 using IterativeSolvers
 using TimerOutputs
@@ -117,20 +117,19 @@ function linear_elasticity_2d(C)
     cellvalues = CellValues(qr, ip)
     facetvalues = FacetValues(qr_face, ip)
 
-    dh = DofHandler(grid)
-    add!(dh, :u, ip)
-    close!(dh)
+    dhh = DofHandlerHierarchy(grid, 2)
+    add!(dhh, :u, [ip_coarse, ip])
+    close!(dhh)
 
-    dh_coarse = DofHandler(grid)
-    add!(dh_coarse, :u, ip_coarse)
-    close!(dh_coarse)
-
-    ch = ConstraintHandler(dh)
-    add!(ch, Dirichlet(:u, getfacetset(grid, "bottom"), (x, t) -> 0.0, 2))
-    add!(ch, Dirichlet(:u, getfacetset(grid, "left"), (x, t) -> 0.0, 1))
-    close!(ch)
+    chh = ConstraintHandlerHierarchy(dhh)
+    add!(chh, dh->Dirichlet(:u, getfacetset(dh.grid, "bottom"), (x, t) -> 0.0, 2))
+    add!(chh, dh->Dirichlet(:u, getfacetset(dh.grid, "left"), (x, t) -> 0.0, 1))
+    close!(chh)
 
     traction(x) = Vec(0.0, 20.0e3 * x[1])
+
+    dh = dhh[end]
+    ch = chh[end]
 
     A = allocate_matrix(dh)
     assemble_global!(A, dh, cellvalues, C)
@@ -139,9 +138,53 @@ function linear_elasticity_2d(C)
     assemble_external_forces!(b, dh, getfacetset(grid, "top"), facetvalues, traction)
     apply!(A, b, ch)
 
-    return A, b, dh, dh_coarse, ch
+    return A, b, dhh, chh
 end
 
+# ### Rediscretization
+#
+# For the rediscretization approach we can define the assembly for the levels via FerriteOperators directly.
+"""
+    LinearElasticityIntegrator{TC, QRC} <: AbstractBilinearIntegrator
+
+Multigrid problem for linear elasticity.
+Implements the FerriteOperators `AbstractBilinearIntegrator` interface.
+"""
+struct LinearElasticityIntegrator{TC <: SymmetricTensor, QRC} <: FerriteOperators.AbstractBilinearIntegrator
+    ℂ::TC  # material stiffness tensor (4th order)
+    qrc::QRC
+end
+
+struct LinearElasticityElementCache{CV, TC} <: FerriteOperators.AbstractVolumetricElementCache
+    cv::CV
+    ℂ::TC
+end
+
+function FerriteOperators.setup_element_cache(problem::LinearElasticityIntegrator, sdh::SubDofHandler)
+    qr     = getquadraturerule(problem.qrc, sdh)
+    ip     = Ferrite.getfieldinterpolation(sdh, first(Ferrite.getfieldnames(sdh)))
+    first_cell = getcells(Ferrite.get_grid(sdh.dh), first(sdh.cellset))
+    ip_geo = Ferrite.geometric_interpolation(typeof(first_cell))
+    cv     = CellValues(qr, ip, ip_geo)
+    return LinearElasticityElementCache(cv, problem.ℂ)
+end
+
+function FerriteOperators.assemble_element!(Ke::AbstractMatrix, cell::CellCache, cache::LinearElasticityElementCache, p)
+    reinit!(cache.cv, cell)
+    fill!(Ke, 0.0)
+    ℂ = cache.ℂ
+    for q_point in 1:getnquadpoints(cache.cv)
+        dΩ = getdetJdV(cache.cv, q_point)
+        for i in 1:getnbasefunctions(cache.cv)
+            ∇ˢʸᵐNᵢ = shape_symmetric_gradient(cache.cv, q_point, i)
+            for j in 1:getnbasefunctions(cache.cv)
+                ∇ˢʸᵐNⱼ = shape_symmetric_gradient(cache.cv, q_point, j)
+                Ke[i, j] += (∇ˢʸᵐNᵢ ⊡ ℂ ⊡ ∇ˢʸᵐNⱼ) * dΩ
+            end
+        end
+    end
+    return Ke
+end
 
 # ### Near Null Space (NNS)
 # 
@@ -183,9 +226,9 @@ end
 # Load `FerriteMultigrid` to access the p-multigrid solver.
 using FerriteMultigrid
 # Construct the linear elasticity problem with 4th order polynomial shape functions.
-A, b, dh, dh_coarse, ch = linear_elasticity_2d(C);
+A, b, dhh, chh = linear_elasticity_2d(C);
 # Construct the near null space (NNS) matrix
-B = create_nns(dh_coarse)
+B = create_nns(dhh[1])
 
 # !!! danger
 #     Since NNS matrix is only relevant for AMG, and it is not used in the p-multigrid solver, therefore, `B` has to provided using linear field approximation (i.e., `p = 1`) when using AMG as the coarse solver, otherwise (e.g., using `Pinv` as the coarse solver), then we don't have to provide it.
@@ -201,22 +244,22 @@ pcoarse_solver = SmoothedAggregationCoarseSolver(; B)
 
 # #### 1. Galerkin Coarsening Strategy
 config_gal = pmultigrid_config(coarse_strategy = Galerkin())
-@timeit "Galerkin only" x_gal, res_gal = solve(A, b, dh, ch, config_gal; pcoarse_solver, log=true, maxiter = 1000, rtol = 1e-10)
+@timeit "Galerkin only" x_gal, res_gal = solve(A, b, dhh, chh, config_gal; pcoarse_solver, log=true, maxiter = 1000, rtol = 1e-10)
 
-builder_gal = PMultigridPreconBuilder(dh, ch, config_gal; pcoarse_solver)
+builder_gal = PMultigridPreconBuilder(dhh, chh, config_gal; pcoarse_solver)
 @timeit "Build preconditioner" Pl_gal = builder_gal(A)[1]
 @timeit "Galerkin CG" x_gcg, res_gcg = IterativeSolvers.cg(A, b; Pl = Pl_gal, maxiter = 1000, log=true, verbose=false)
 
 # #### 2. Rediscretization Coarsening Strategy
 ## Rediscretization Coarsening Strategy
-config_red = pmultigrid_config(coarse_strategy = Rediscretization(LinearElasticityMultigrid(C)))
-@timeit "Rediscretization only" x_red, res_red = solve(A, b, dh, ch, config_red; pcoarse_solver, log=true, maxiter = 1000, rtol = 1e-10)
+config_red = pmultigrid_config(coarse_strategy = Rediscretization(LinearElasticityIntegrator(C, QuadratureRuleCollection(7))))
+@timeit "Rediscretization only" x_red, res_red = solve(A, b, dhh, chh, config_red; pcoarse_solver, log=true, maxiter = 1000, rtol = 1e-10)
 
-builder_red = PMultigridPreconBuilder(dh, ch, config_red; pcoarse_solver)
+builder_red = PMultigridPreconBuilder(dhh, chh, config_red; pcoarse_solver)
 @timeit "Build preconditioner" Pl_red = builder_red(A)[1]
 @timeit "Rediscretization CG" x_rcg, res_rcg = IterativeSolvers.cg(A, b; Pl = Pl_red, maxiter = 1000, log=true, verbose=false)
 
-print_timer(title = "Analysis with $(getncells(dh.grid)) elements", linechars = :ascii)
+print_timer(title = "Analysis with $(getncells(dhh[end].grid)) elements", linechars = :ascii)
 
 # ### Test the solution                                                                          #src
 using Test                                                                                       #src
@@ -225,8 +268,8 @@ using Test                                                                      
     @test A * x_gal ≈ b atol=1e-4                                                                #src
     println("Final residual with Galerkin CG: ", res_gcg.data[:resnorm][end])                    #src
     @test A * x_gcg ≈ b atol=1e-4                                                                #src
-    ## println("Final residual with Rediscretization coarsening: ", res_red[end])                #src
-    ## @test A * x_red ≈ b atol=1e-4                                                             #src
+    println("Final residual with Rediscretization coarsening: ", res_red[end])                   #src
+    @test A * x_red ≈ b atol=1e-4                                                                #src
     println("Final residual with Rediscretization coarsening: ", res_rcg.data[:resnorm][end])    #src
     @test A * x_rcg ≈ b atol=1e-4                                                                #src
 end                                                                                              #src

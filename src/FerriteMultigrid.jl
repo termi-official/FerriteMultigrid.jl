@@ -11,7 +11,7 @@ import Base: *
 using TimerOutputs
 
 using Ferrite
-import Ferrite: getorder, AbstractDofHandler, reinit!, AbstractCell, AbstractRefShape
+import Ferrite: getorder, AbstractDofHandler, reinit!, AbstractCell, AbstractRefShape, AbstractGrid
 @reexport using AlgebraicMultigrid
 import AlgebraicMultigrid as AMG
 import AlgebraicMultigrid:
@@ -43,8 +43,6 @@ import FerriteOperators:
     SequentialAssemblyStrategy, SequentialCPUDevice
 import Ferrite: get_grid
 
-include("fe.jl")
-include("multigrid_problems.jl")
 include("prolongator.jl")
 include("handler_hierarchy.jl")
 include("pmultigrid.jl")
@@ -55,10 +53,6 @@ include("uniform_refinement.jl")
 include("geometric_multigrid.jl")
 
 export 
-    AbstractPMultigrid,
-    DiffusionMultigrid, 
-    LinearElasticityMultigrid,
-    ConstantCoefficient, 
     Galerkin,
     Rediscretization, 
     SmoothedAggregationCoarseSolver,
@@ -69,7 +63,6 @@ export
     PMultigridPreconBuilder,
     GMultigridCoarseSolver,
     GMultigridCoarseSolverBuilder,
-    AbstractCoefficient,
     solve,
     init,
     # Handler hierarchies
@@ -84,6 +77,6 @@ export
     GridHierarchy,
     GMultigridConfiguration,
     gmultigrid_config,
-    build_geometric_prolongator,
     gmultigrid
+
 end

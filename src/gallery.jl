@@ -1,5 +1,5 @@
 ## 1D poisson equation with Dirichlet boundary conditions ##
-function poisson(N::Int64, p::Int, nqr::Int)
+function poisson(N::Int64, p::Vector{Int}, nqr::Int)
     sz = (N,)
     ∂Ω_f = grid -> union(
         getfacetset(grid, "left"),
@@ -9,7 +9,7 @@ function poisson(N::Int64, p::Int, nqr::Int)
 end
 
 ## 2D poisson equation with Dirichlet boundary conditions ##
-function poisson(sz::NTuple{2,Int64}, p::Int, nqr::Int)
+function poisson(sz::NTuple{2,Int64}, p::Vector{Int}, nqr::Int)
     ∂Ω_f = grid -> union(
         getfacetset(grid, "left"),
         getfacetset(grid, "right"),
@@ -19,14 +19,14 @@ function poisson(sz::NTuple{2,Int64}, p::Int, nqr::Int)
     return poisson(sz, p, nqr, Quadrilateral, RefQuadrilateral, ∂Ω_f)
 end
 
-function assemble_poisson(dh::DofHandler, ch::ConstraintHandler)
+function assemble_poisson(dh::DofHandler, ch::ConstraintHandler, nqr::Int)
     K   = allocate_matrix(dh)
     f   = zeros(ndofs(dh))
     asm = start_assemble(K, f)
     grid = Ferrite.get_grid(dh)
     for sdh in dh.subdofhandlers
         ip  = Ferrite.getfieldinterpolation(sdh, :u)
-        qr  = QuadratureRule{Ferrite.getrefshape(getcells(grid, first(sdh.cellset)))}(Ferrite.getorder(ip) + 1)
+        qr  = QuadratureRule{Ferrite.getrefshape(getcells(grid, first(sdh.cellset)))}(nqr)
         cv  = CellValues(qr, ip)
         n   = getnbasefunctions(cv)
         Ke  = zeros(n, n)
@@ -41,29 +41,21 @@ function assemble_poisson(dh::DofHandler, ch::ConstraintHandler)
     return K, f
 end
 
-function poisson(sz::NTuple{N,Int}, p, nqr, celltype::Type{<:AbstractCell}, refshapetype::Type{<:AbstractRefShape}, ∂Ω_f) where {N}
+function poisson(sz::NTuple{N,Int}, ps::Vector, nqr::Int, celltype::Type{<:AbstractCell}, refshapetype::Type{<:AbstractRefShape}, ∂Ω_f) where {N}
     grid = generate_grid(celltype, sz)
-    ip = Lagrange{refshapetype, p}() 
-    qr = QuadratureRule{refshapetype}(nqr)  
-    cellvalues = CellValues(qr, ip)
+    dhh = DofHandlerHierarchy(grid, length(ps))
+    for (i, p) in enumerate(ps)
+        add!(dhh[i], :u, Lagrange{refshapetype, p}())
+    end
+    close!(dhh)
 
-    dh = DofHandler(grid)
-    add!(dh, :u, ip)
-    close!(dh)
+    chh = ConstraintHandlerHierarchy(dhh)
+    add!(chh, dh -> Dirichlet(:u, ∂Ω_f(dh.grid), (x, t) -> 0.0))
+    close!(chh)
 
-    K = allocate_matrix(dh)
+    K, f = assemble_poisson(dhh[end], chh[end], nqr)
 
-    ch = ConstraintHandler(dh)
-
-    ∂Ω = ∂Ω_f(grid)
-
-    dbc = Dirichlet(:u, ∂Ω, (x, t) -> 0.0)
-    add!(ch, dbc)
-    close!(ch)
-
-    K, f = assemble_poisson(dh, ch)
-
-    return K, f, dh, ch
+    return K, f, dhh, chh
 end
 
 function assemble_poisson_element!(Ke, fe, cellvalues)

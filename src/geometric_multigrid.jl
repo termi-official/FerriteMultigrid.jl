@@ -100,10 +100,12 @@ function build_geometric_prolongator(
         dh_fine::DofHandler,
         dh_coarse::DofHandler,
         fine2coarse::AbstractVector{Int},
-        child_ref_coords::AbstractVector;
-        qr_order::Int = 2 * order(dh_fine),
+        child_ref_coords::AbstractVector
     )
     field_name = first(Ferrite.getfieldnames(dh_fine))
+    # FIXME multi-field support
+    @assert length(dh_fine.field_names) == 1 "Multiple fields not yet supported"
+    qr_order   = 2 * getorder(dh_fine.subdofhandlers[1].field_interpolations[1])
     integrator = NestedMassProlongatorIntegrator(QuadratureRuleCollection(qr_order), field_name)
     strategy   = SequentialAssemblyStrategy(SequentialCPUDevice())
 

@@ -13,14 +13,14 @@ It is built on top of [Ferrite.jl](https://github.com/Ferrite-FEM/Ferrite.jl) an
 ```julia
 using FerriteMultigrid
 
-# Define a 1D diffusion problem with p = 2 and 3 quadrature points.
-K, f, fe_space = poisson(1000, 2, 3)
+# Define a 1D diffusion problem with p = 2 for the fine grid and p = 1 for the coarse grid and 3 quadrature points.
+K, f, dhh, chh = poisson(1000, [1, 2], 3)
 
 # Define a p-multigrid configuration
-config = pmultigrid_config() # default config (galerkin as coarsening strategy and direct projection (i.e., from p to 1 directly))
+config = pmultigrid_config()
 
 # Solve using the p-multigrid solver
-x, res = solve(K, f, fe_space, config; log = true, rtol = 1e-10)
+x, res = solve(K, f, dhh, chh, config; log = true, rtol = 1e-10)
 ```
 
 ## Acknowledgement

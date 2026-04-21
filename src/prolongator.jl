@@ -8,9 +8,15 @@ For each cell the local prolongator is computed via an element-local L²-project
 (fine mass matrix inverse times cross-mass matrix), then assembled into the global matrix.
 Rows are normalised by the number of element contributions to handle shared dofs correctly.
 """
-function build_prolongator(fine_dh::DofHandler, coarse_dh::DofHandler)
+function build_prolongator(
+        fine_dh::DofHandler,
+        coarse_dh::DofHandler
+    )
     field_name  = first(Ferrite.getfieldnames(fine_dh))
-    integrator  = MassProlongatorIntegrator(QuadratureRuleCollection(2 * order(fine_dh)), field_name)
+    # FIXME multi-field support
+    @assert length(fine_dh.field_names) == 1 "Multiple fields not yet supported"
+    qr_order    = 2 * getorder(fine_dh.subdofhandlers[1].field_interpolations[1])
+    integrator  = MassProlongatorIntegrator(QuadratureRuleCollection(qr_order), field_name)
     strategy    = SequentialAssemblyStrategy(SequentialCPUDevice())
 
     op = @timeit_debug "setup transfer operator" setup_transfer_operator(strategy, integrator, fine_dh, coarse_dh)

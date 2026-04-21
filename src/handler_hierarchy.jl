@@ -32,6 +32,8 @@ struct DofHandlerHierarchy{DH <: AbstractDofHandler}
     handlers::Vector{DH}
 end
 
+DofHandlerHierarchy(grid::AbstractGrid, num_levels::Int) = DofHandlerHierarchy([DofHandler(grid) for i in 1:num_levels])
+
 Base.getindex(dhh::DofHandlerHierarchy, i::Int) = dhh.handlers[i]
 Base.length(dhh::DofHandlerHierarchy) = length(dhh.handlers)
 Base.lastindex(dhh::DofHandlerHierarchy) = length(dhh.handlers)
@@ -41,8 +43,15 @@ Base.lastindex(dhh::DofHandlerHierarchy) = length(dhh.handlers)
 
 Add a field `field_name` with interpolation `ip` to every `DofHandler` in the hierarchy.
 """
-function Ferrite.add!(dhh::DofHandlerHierarchy, field_name::Symbol, ip)
+function Ferrite.add!(dhh::DofHandlerHierarchy, field_name::Symbol, ip::Interpolation)
     for dh in dhh.handlers
+        add!(dh, field_name, ip)
+    end
+    return dhh
+end
+
+function Ferrite.add!(dhh::DofHandlerHierarchy, field_name::Symbol, ips::AbstractVector{<:Interpolation})
+    for (dh, ip) in zip(dhh.handlers, ips)
         add!(dh, field_name, ip)
     end
     return dhh
@@ -179,8 +188,14 @@ Base.lastindex(sdhh::SubDofHandlerHierarchy) = length(sdhh.handlers)
 
 Add a field to every `SubDofHandler` in the hierarchy.
 """
-function Ferrite.add!(sdhh::SubDofHandlerHierarchy, field_name::Symbol, ip)
+function Ferrite.add!(sdhh::SubDofHandlerHierarchy, field_name::Symbol, ip::Interpolation)
     for sdh in sdhh.handlers
+        add!(sdh, field_name, ip)
+    end
+    return sdhh
+end
+function Ferrite.add!(sdhh::SubDofHandlerHierarchy, field_name::Symbol, ips::Vector{<:Interpolation})
+    for (ip, sdh) in zip(ips, sdhh.handlers)
         add!(sdh, field_name, ip)
     end
     return sdhh

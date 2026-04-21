@@ -5,10 +5,10 @@ import IterativeSolvers
 import LinearAlgebra: norm
 
 @testset "LinearSolvePrecs" begin
-    A, b, dh, ch = poisson(3, 2, 3)
+    A, b, dhh, chh = poisson(3, [1, 2], 3)
 
     prob = LinearProblem(A, b)
-    prec_builder = MultigridPreconBuilder(dh, ch, pmultigrid_config(), pcoarse_solver = Pinv)
+    prec_builder = PMultigridPreconBuilder(dhh, chh, pmultigrid_config(), pcoarse_solver = Pinv)
     strategy = KrylovJL_CG(precs=prec_builder)
     @test A*LinearSolve.solve(prob, strategy, atol=1.0e-14) ≈ b rtol = 1.0e-8
 end
@@ -18,13 +18,13 @@ end
     # Preconditioner chain: PMG (P2 → P1, same fine grid)
     #                     → GMG (P1 fine → P1 coarse, 1 uniform refinement)
     #                     → AMG coarse solver
-    N_coarse = 4
+    N_coarse = 125
     coarse_grid = generate_grid(Line, (N_coarse,))
     fine_grid, _, _ = uniform_refinement(coarse_grid)
     gh = GridHierarchy(coarse_grid, 1)   # 1 refinement: coarse → fine
 
     # ── P2 problem on fine grid ───────────────────────────────────────────────
-    A, b, dh_p2, ch_p2 = poisson((2 * N_coarse,), 2, 3, Line, RefLine,
+    A, b, dhh, chh = poisson((2 * N_coarse,), [1, 2], 3, Line, RefLine,
                                    g -> union(getfacetset(g, "left"),
                                               getfacetset(g, "right")))
 
@@ -41,7 +41,7 @@ end
 
     # ── Build combined preconditioner: PMG → GMG → AMG ───────────────────────
     gmg_builder = GMultigridCoarseSolverBuilder(gh, dhh_p1, chh_p1)
-    ml = pmultigrid(A, dh_p2, ch_p2, pmultigrid_config(), gmg_builder)
+    ml = pmultigrid(A, dhh, chh, pmultigrid_config(), gmg_builder)
     prec = aspreconditioner(ml)
 
     # ── Solve with IterativeSolvers.cg ────────────────────────────────────────

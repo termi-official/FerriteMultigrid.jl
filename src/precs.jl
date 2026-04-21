@@ -51,7 +51,7 @@ function (b::GMultigridCoarseSolverBuilder)(A::SparseMatrixCSC)
 end
 
 """
-    MultigridPreconBuilder(dh, ch, pgrid_config; cycle, pcoarse_solver, blocksize, kwargs...)
+    PMultigridPreconBuilder(dh, ch, pgrid_config; cycle, pcoarse_solver, blocksize, kwargs...)
 
 A callable preconditioner builder for use with `LinearSolve.KrylovJL_CG(precs = builder)`.
 When called as `builder(A, p)`, it assembles the polynomial multigrid hierarchy and returns
@@ -60,12 +60,10 @@ When called as `builder(A, p)`, it assembles the polynomial multigrid hierarchy 
 `pcoarse_solver` may be any coarse-solver factory (e.g. `SmoothedAggregationCoarseSolver()`,
 `GMultigridCoarseSolverBuilder(gh, dhh, chh)`) allowing arbitrary chaining of multigrid
 strategies.
-
-`PMultigridPreconBuilder` is a backward-compatible alias.
 """
-struct MultigridPreconBuilder{Tk, CS, C}
-    dh::AbstractDofHandler
-    ch::ConstraintHandler
+struct PMultigridPreconBuilder{Tk, CS, C}
+    dhh::DofHandlerHierarchy
+    chh::Union{ConstraintHandlerHierarchy, Nothing}
     pgrid_config::PMultigridConfiguration
     pcoarse_solver::CS
     blocksize::Int
@@ -73,23 +71,33 @@ struct MultigridPreconBuilder{Tk, CS, C}
     kwargs::Tk
 end
 
-function MultigridPreconBuilder(dh::AbstractDofHandler, ch::ConstraintHandler,
+function PMultigridPreconBuilder(
+        dh::DofHandlerHierarchy, ch::ConstraintHandlerHierarchy,
         pgrid_config::PMultigridConfiguration = pmultigrid_config();
         cycle          = AMG.V(),
         pcoarse_solver = SmoothedAggregationCoarseSolver(),
         blocksize      = 1,
-        kwargs...)
-    return MultigridPreconBuilder(dh, ch, pgrid_config, pcoarse_solver, blocksize, cycle, kwargs)
+        kwargs...
+    )
+    return PMultigridPreconBuilder(dh, ch, pgrid_config, pcoarse_solver, blocksize, cycle, kwargs)
 end
 
-## Backward-compatible alias
-const PMultigridPreconBuilder = MultigridPreconBuilder
+function PMultigridPreconBuilder(
+        dh::DofHandlerHierarchy,
+        pgrid_config::PMultigridConfiguration{<:Galerkin} = pmultigrid_config();
+        cycle          = AMG.V(),
+        pcoarse_solver = SmoothedAggregationCoarseSolver(),
+        blocksize      = 1,
+        kwargs...
+    )
+    return PMultigridPreconBuilder(dh, nothing, pgrid_config, pcoarse_solver, blocksize, cycle, kwargs)
+end
 
-function (b::MultigridPreconBuilder)(A::AbstractSparseMatrixCSC, p = nothing)
+function (b::PMultigridPreconBuilder)(A::AbstractSparseMatrixCSC, p = nothing)
     return b(SparseMatrixCSC(A), p)
 end
 
-function (b::MultigridPreconBuilder)(A::SparseMatrixCSC, p = nothing)
-    ml = @timeit_debug "pmultigrid hierarchy" pmultigrid(A, b.dh, b.ch, b.pgrid_config, b.pcoarse_solver, Val{b.blocksize}; b.kwargs...)
+function (b::PMultigridPreconBuilder)(A::SparseMatrixCSC, p = nothing)
+    ml = @timeit_debug "pmultigrid hierarchy" pmultigrid(A, b.dhh, b.chh, b.pgrid_config, b.pcoarse_solver, Val{b.blocksize}; b.kwargs...)
     return (aspreconditioner(ml, b.cycle), I)
 end

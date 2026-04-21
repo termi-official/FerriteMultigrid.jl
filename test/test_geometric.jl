@@ -131,7 +131,7 @@ end
         dh_fine   = DofHandler(gh.grids[k+1]); add!(dh_fine,   :u, Lagrange{RefLine,1}()); close!(dh_fine)
         dh_coarse = DofHandler(gh.grids[k]);   add!(dh_coarse, :u, Lagrange{RefLine,1}()); close!(dh_coarse)
 
-        P = build_geometric_prolongator(dh_fine, dh_coarse, gh.fine2coarse[k], gh.child_ref_coords[k])
+        P = FerriteMultigrid.build_geometric_prolongator(dh_fine, dh_coarse, gh.fine2coarse[k], gh.child_ref_coords[k])
 
         @test size(P, 1) == ndofs(dh_fine)
         @test size(P, 2) == ndofs(dh_coarse)
@@ -148,7 +148,7 @@ end
     dh_fine   = DofHandler(fine_grid);   add!(dh_fine,   :u, Lagrange{RefQuadrilateral,1}()); close!(dh_fine)
     dh_coarse = DofHandler(coarse_grid); add!(dh_coarse, :u, Lagrange{RefQuadrilateral,1}()); close!(dh_coarse)
 
-    P = build_geometric_prolongator(dh_fine, dh_coarse, f2c, crc)
+    P = FerriteMultigrid.build_geometric_prolongator(dh_fine, dh_coarse, f2c, crc)
     @test size(P) == (ndofs(dh_fine), ndofs(dh_coarse))
     row_sums = vec(sum(P; dims=2))
     @test row_sums ≈ ones(ndofs(dh_fine)) atol=1e-10
@@ -173,7 +173,7 @@ end
         union(getfacetset(dh.grid, "left"), getfacetset(dh.grid, "right")), (x, t) -> 0.0))
     close!(chh)
 
-    K, f = assemble_poisson(dhh[end], chh[end])
+    K, f = assemble_poisson(dhh[end], chh[end], 2)
     config = gmultigrid_config()
 
     x, res = solve(K, f, gh, dhh, chh, config;
@@ -196,8 +196,8 @@ end
         union(getfacetset(dh.grid, "left"), getfacetset(dh.grid, "right")), (x, t) -> 0.0))
     close!(chh)
 
-    K, f = assemble_poisson(dhh[end], chh[end])
-    config = gmultigrid_config(coarse_strategy = Rediscretization(DiffusionMultigrid(1.0)))
+    K, f = assemble_poisson(dhh[end], chh[end], 2)
+    config = gmultigrid_config(coarse_strategy = Rediscretization(DiffusionIntegrator(1.0, 2)))
 
     x, res = solve(K, f, gh, dhh, chh, config;
                    pcoarse_solver = SmoothedAggregationCoarseSolver(),
@@ -219,7 +219,7 @@ end
         union(getfacetset(dh.grid, "left"), getfacetset(dh.grid, "right")), (x, t) -> 0.0))
     close!(chh)
 
-    K, f = assemble_poisson(dhh[end], chh[end])
+    K, f = assemble_poisson(dhh[end], chh[end], 2)
     config = gmultigrid_config()
 
     x, res = solve(K, f, gh, dhh, chh, config;
@@ -244,7 +244,7 @@ end
     end)
     close!(chh)
 
-    K, f = assemble_poisson(dhh[end], chh[end])
+    K, f = assemble_poisson(dhh[end], chh[end], 3)
     config = gmultigrid_config()
 
     x, res = solve(K, f, gh, dhh, chh, config;
@@ -281,23 +281,23 @@ end
     grid = generate_grid(Quadrilateral, (4, 4))
     _add_subdomain_cellsets!(grid)
 
-    dh = DofHandler(grid)
-    sdh_l = SubDofHandler(dh, getcellset(grid, "left_domain"))
-    add!(sdh_l, :u, Lagrange{RefQuadrilateral, 3}())
-    sdh_r = SubDofHandler(dh, getcellset(grid, "right_domain"))
-    add!(sdh_r, :u, Lagrange{RefQuadrilateral, 3}())
-    close!(dh)
+    dhh = DofHandlerHierarchy(grid, 3)
+    sdhh_l = SubDofHandlerHierarchy(dhh, dh -> getcellset(dh.grid, "left_domain"))
+    add!(sdhh_l, :u, [Lagrange{RefQuadrilateral, 3}(), Lagrange{RefQuadrilateral, 2}(), Lagrange{RefQuadrilateral, 1}()])
+    sdhh_r = SubDofHandlerHierarchy(dhh, dh -> getcellset(dh.grid, "right_domain"))
+    add!(sdhh_r, :u, [Lagrange{RefQuadrilateral, 3}(), Lagrange{RefQuadrilateral, 2}(), Lagrange{RefQuadrilateral, 1}()])
+    close!(dhh)
 
     ∂Ω = union(getfacetset(grid, "left"), getfacetset(grid, "right"),
                getfacetset(grid, "bottom"), getfacetset(grid, "top"))
-    ch = ConstraintHandler(dh)
-    add!(ch, Dirichlet(:u, ∂Ω, (x, t) -> 0.0))
-    close!(ch)
+    chh = ConstraintHandlerHierarchy(dhh)
+    add!(chh, dh -> Dirichlet(:u, ∂Ω, (x, t) -> 0.0))
+    close!(chh)
 
-    K, f = assemble_poisson(dh, ch)
+    K, f = assemble_poisson(dhh[end], chh[end], 5)
     config = pmultigrid_config()
 
-    x, res = solve(K, f, dh, ch, config;
+    x, res = solve(K, f, dhh, chh, config;
                    pcoarse_solver = SmoothedAggregationCoarseSolver(),
                    maxiter = 100, reltol = 1e-10, log = true)
     @test K * x ≈ f atol=1e-6
@@ -308,26 +308,21 @@ end
     grid = generate_grid(Quadrilateral, (4, 4))
     _add_subdomain_cellsets!(grid)
 
-    dh = DofHandler(grid)
-    sdh_l = SubDofHandler(dh, getcellset(grid, "left_domain"))
-    add!(sdh_l, :u, Lagrange{RefQuadrilateral, 2}())
-    sdh_r = SubDofHandler(dh, getcellset(grid, "right_domain"))
-    add!(sdh_r, :u, Lagrange{RefQuadrilateral, 2}())
-    close!(dh)
+    dhh = DofHandlerHierarchy(grid, 2)
+    sdhh_l = SubDofHandlerHierarchy(dhh, dh -> getcellset(dh.grid, "left_domain"))
+    add!(sdhh_l, :u, [Lagrange{RefQuadrilateral, 2}(), Lagrange{RefQuadrilateral, 1}()])
+    sdhh_r = SubDofHandlerHierarchy(dhh, dh -> getcellset(dh.grid, "right_domain"))
+    add!(sdhh_r, :u, [Lagrange{RefQuadrilateral, 2}(), Lagrange{RefQuadrilateral, 1}()])
+    close!(dhh)
 
     ∂Ω = union(getfacetset(grid, "left"), getfacetset(grid, "right"),
                getfacetset(grid, "bottom"), getfacetset(grid, "top"))
-    ch = ConstraintHandler(dh)
-    add!(ch, Dirichlet(:u, ∂Ω, (x, t) -> 0.0))
-    close!(ch)
+    chh = ConstraintHandlerHierarchy(dhh)
+    add!(chh, dh -> Dirichlet(:u, ∂Ω, (x, t) -> 0.0))
+    close!(chh)
 
-    K, f = assemble_poisson(dh, ch)
+    K, f = assemble_poisson(dhh[end], chh[end], 3)
     config = pmultigrid_config()
-
-    dhh, chh = build_pmg_dofhandler_hierarchy(dh, ch, config)
-    @test length(dhh) == 2  # P2 → P1: two levels
-    @test length(dhh[1].subdofhandlers) == 2   # coarsest level preserves 2 subdomains
-    @test length(dhh[end].subdofhandlers) == 2  # finest level preserves 2 subdomains
 
     x, res = solve(K, f, dhh, chh, config;
                    pcoarse_solver = SmoothedAggregationCoarseSolver(),
@@ -371,7 +366,7 @@ end
     @test length(dhh[1].subdofhandlers) == 2
     @test length(dhh[2].subdofhandlers) == 2
 
-    K, f = assemble_poisson(dhh[end], chh[end])
+    K, f = assemble_poisson(dhh[end], chh[end], 2)
     config = gmultigrid_config()
 
     x, res = solve(K, f, gh, dhh, chh, config;

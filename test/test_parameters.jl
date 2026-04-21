@@ -6,13 +6,13 @@ import FerriteMultigrid: init, AMGCoarseSolver
     @test config.coarse_strategy isa Galerkin
 
     # config: Rediscretization
-    config = pmultigrid_config(coarse_strategy=Rediscretization(DiffusionMultigrid(1.0)))
+    config = pmultigrid_config(coarse_strategy=Rediscretization(DiffusionIntegrator(1.0, 2)))
     @test config.coarse_strategy isa Rediscretization
 end
 
 
 @testset "MultiLevel Parameters" begin
-    K, f, dh, ch = poisson(3, 2, 3)
+    K, f, dh, ch = poisson(3, [1, 2], 3)
     ## SA-AMG as coarse solver
     pmgsolver = init(K, f, dh, ch, pmultigrid_config(), pcoarse_solver=SmoothedAggregationCoarseSolver(), presmoother=GaussSeidel(; iter=4), postsmoother=GaussSeidel(; iter=2))
     ml = pmgsolver.ml
