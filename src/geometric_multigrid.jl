@@ -133,6 +133,15 @@ end
 ## gmultigrid                                                        ##
 #######################################################################
 
+_gmg_coarse_matrix(A, P, R, ::Galerkin, dh_coarse, ch_coarse, u, p) = R * A * P
+
+function _gmg_coarse_matrix(A, P, R, cs::Rediscretization, dh_coarse, ch_coarse, u, p)
+    op = setup_operator(cs.strategy, cs.integrator, dh_coarse)
+    update_operator!(op, p)
+    ch_coarse !== nothing && apply!(op.A, ch_coarse)
+    return op.A
+end
+
 """
     gmultigrid(A, gh, dhh, chh, config, pcoarse_solver; kwargs...)
 
@@ -154,16 +163,6 @@ Build a geometric multigrid preconditioner / solver for `Ax = b`.
 - `Galerkin()` – coarse-grid matrix = R A P  (Galerkin projection)
 - `Rediscretization(integrator)` – re-assembles the operator on each coarse grid
 """
-
-_gmg_coarse_matrix(A, P, R, ::Galerkin, dh_coarse, ch_coarse, u, p) = R * A * P
-
-function _gmg_coarse_matrix(A, P, R, cs::Rediscretization, dh_coarse, ch_coarse, u, p)
-    op = setup_operator(cs.strategy, cs.integrator, dh_coarse)
-    update_operator!(op, p)
-    ch_coarse !== nothing && apply!(op.A, ch_coarse)
-    return op.A
-end
-
 function gmultigrid(
         A::SparseMatrixCSC{T},
         gh::GridHierarchy,
