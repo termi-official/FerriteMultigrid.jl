@@ -75,6 +75,7 @@ function pmultigrid(
     p = nothing,
     presmoother  = GaussSeidel(),
     postsmoother = GaussSeidel(),
+    symmetry = AMG.HermitianSymmetry(),
     kwargs...,
     ) where {T,V,bs,TA<:SparseMatrixCSC{T,V}}
 
@@ -104,7 +105,7 @@ function pmultigrid(
         end
 
         @timeit_debug "extend_hierarchy!" cur_A = extend_hierarchy!(
-            levels, fine_dh, fine_ch, coarse_dh, coarse_ch, cur_A, cs, u, p)
+            levels, fine_dh, fine_ch, coarse_dh, coarse_ch, cur_A, cs, symmetry, presmoother, postsmoother, u, p)
 
         coarse_x!(w, size(cur_A, 1))
         coarse_b!(w, size(cur_A, 1))
@@ -115,18 +116,26 @@ function pmultigrid(
     return MultiLevel(levels, cur_A, coarse_solver, presmoother, postsmoother, w)
 end
 
-function extend_hierarchy!(levels, fine_dh, fine_ch, coarse_dh, coarse_ch, A, cs::Galerkin, u, p)
+function extend_hierarchy!(levels, fine_dh, fine_ch, coarse_dh, coarse_ch, A, cs::Galerkin, symmetry, presmoother, postsmoother, u, p)
     P = @timeit_debug "build prolongator" build_prolongator(fine_dh, coarse_dh)
     R = @timeit_debug "build restriction" build_restriction(coarse_dh, fine_dh, P, cs.is_sym)
-    push!(levels, Level(A, P, R))
+    @timeit_debug "smoother setup" begin
+        pre = AMG.setup_smoother(presmoother, A, symmetry)
+        post = AMG.setup_smoother(postsmoother, A, symmetry)
+        push!(levels, Level(A, P, R, pre, post))
+    end
     RAP = @timeit_debug "RAP" R * A * P # Galerkin projection
     return RAP
 end
 
-function extend_hierarchy!(levels, fine_dh, fine_ch, coarse_dh, coarse_ch, A, cs::Rediscretization, u, p)
-    P = build_prolongator(fine_dh, coarse_dh)
-    R = build_restriction(coarse_dh, fine_dh, P, cs.is_sym)
-    push!(levels, Level(A, P, R))
+function extend_hierarchy!(levels, fine_dh, fine_ch, coarse_dh, coarse_ch, A, cs::Rediscretization, symmetry, presmoother, postsmoother, u, p)
+    P = @timeit_debug "build prolongator" build_prolongator(fine_dh, coarse_dh)
+    R = @timeit_debug "build restriction" build_restriction(coarse_dh, fine_dh, P, cs.is_sym)
+    @timeit_debug "smoother setup" begin
+        pre = AMG.setup_smoother(presmoother, A, symmetry)
+        post = AMG.setup_smoother(postsmoother, A, symmetry)
+        push!(levels, Level(A, P, R, pre, post))
+    end
 
     op = @timeit_debug "setup coarse operator" setup_operator(cs.strategy, cs.integrator, coarse_dh)
     @timeit_debug "assemble coarse operator" update_operator!(op, p) # TODO might call update_linearization! instead.
@@ -134,6 +143,3 @@ function extend_hierarchy!(levels, fine_dh, fine_ch, coarse_dh, coarse_ch, A, cs
     A = op.A
     return A
 end
-
-
-
