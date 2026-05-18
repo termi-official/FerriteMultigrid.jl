@@ -202,7 +202,7 @@ Info    : [ 80%] Meshing curve 15 (Line)
 Info    : [ 90%] Meshing curve 16 (Line)
 Info    : [ 90%] Meshing curve 17 (Line)
 Info    : [100%] Meshing curve 18 (Line)
-Info    : Done meshing 1D (Wall 0.000929575s, CPU 0.00093s)
+Info    : Done meshing 1D (Wall 0.000966816s, CPU 0.000968s)
 Info    : Meshing 2D...
 Info    : [  0%] Meshing surface 1 (Plane, Frontal-Delaunay)
 Info    : [ 20%] Meshing surface 2 (Plane, Frontal-Delaunay)
@@ -210,7 +210,7 @@ Info    : [ 40%] Meshing surface 3 (Plane, Frontal-Delaunay)
 Info    : [ 60%] Meshing surface 4 (Plane, Frontal-Delaunay)
 Info    : [ 70%] Meshing surface 5 (Plane, Frontal-Delaunay)
 Info    : [ 90%] Meshing surface 6 (Plane, Frontal-Delaunay)
-Info    : Done meshing 2D (Wall 0.00186409s, CPU 0.001864s)
+Info    : Done meshing 2D (Wall 0.00197412s, CPU 0.001973s)
 Info    : 104 nodes 245 elements</code></pre><p>Construct the near null space (NNS) matrix</p><pre><code class="language-julia hljs">B = create_nns(dhh[1])</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi">208×3 Matrix{Float64}:
  1.0  0.0  -1.0
  0.0  1.0   0.801535
@@ -269,127 +269,127 @@ builder_red = PMultigridPreconBuilder(dhh, chh, config_red; pcoarse_solver)
 print_timer(title = &quot;Analysis with $(getncells(dhh[end].grid)) elements&quot;, linechars = :ascii)</code></pre><pre class="documenter-example-output"><code class="nohighlight hljs ansi"><span class="sgr1">-----------------------------------------------------------------------------------------------</span>
 <span class="sgr1">         Analysis with 174 elements          </span>         Time                    Allocations
                                              -----------------------   ------------------------
-              Tot / % measured:                   1.26s /  86.2%            124MiB /  87.4%
+              Tot / % measured:                   1.24s /  85.0%            124MiB /  87.4%
 
 Section                              ncalls     time    %tot     avg     alloc    %tot      avg
 -----------------------------------------------------------------------------------------------
-Rediscretization only                     1    665ms   61.3%   665ms   45.9MiB   42.3%  45.9MiB
-  init                                    1    337ms   31.1%   337ms   29.3MiB   27.1%  29.3MiB
-    extend_hierarchy!                     1    337ms   31.0%   337ms   28.8MiB   26.5%  28.8MiB
-      setup coarse operator               1    176ms   16.3%   176ms   13.9MiB   12.9%  13.9MiB
-      assemble coarse operator            1    107ms    9.9%   107ms   6.27MiB    5.8%  6.27MiB
-      setup transfer operator             1   50.8ms    4.7%  50.8ms   8.50MiB    7.8%  8.50MiB
+Rediscretization only                     1    637ms   60.4%   637ms   45.9MiB   42.3%  45.9MiB
+  init                                    1    306ms   29.0%   306ms   29.3MiB   27.1%  29.3MiB
+    extend_hierarchy!                     1    306ms   28.9%   306ms   28.8MiB   26.5%  28.8MiB
+      setup coarse operator               1    185ms   17.5%   185ms   13.9MiB   12.9%  13.9MiB
+      assemble coarse operator            1    117ms   11.1%   117ms   6.27MiB    5.8%  6.27MiB
       assemble transfer operator          1   2.63ms    0.2%  2.63ms   31.4KiB    0.0%  31.4KiB
-      row normalization                   1   32.4μs    0.0%  32.4μs     0.00B    0.0%    0.00B
-    coarse solver setup                   1    542μs    0.0%   542μs    546KiB    0.5%   546KiB
-      extend_hierarchy!                   2    488μs    0.0%   244μs    533KiB    0.5%   267KiB
-        fit candidates                    2    146μs    0.0%  73.0μs   82.2KiB    0.1%  41.1KiB
-        improve candidates                2    108μs    0.0%  53.8μs     0.00B    0.0%    0.00B
-        RAP                               2   90.5μs    0.0%  45.3μs    175KiB    0.2%  87.4KiB
-        restriction setup                 2   75.1μs    0.0%  37.5μs    192KiB    0.2%  96.0KiB
-        strength                          2   47.6μs    0.0%  23.8μs   51.6KiB    0.0%  25.8KiB
-        aggregation                       2   15.2μs    0.0%  7.58μs   24.0KiB    0.0%  12.0KiB
-      coarse solver setup                 1   38.5μs    0.0%  38.5μs   3.19KiB    0.0%  3.19KiB
-      prologue                            1   6.61μs    0.0%  6.61μs   6.93KiB    0.0%  6.93KiB
-      ml setup                            1   5.27μs    0.0%  5.27μs      224B    0.0%     224B
-  solve!                                  1   73.7ms    6.8%  73.7ms   4.78MiB    4.4%  4.78MiB
-    Presmoother                         101   25.5ms    2.3%   252μs     0.00B    0.0%    0.00B
-    Postsmoother                        101   25.4ms    2.3%   252μs     0.00B    0.0%    0.00B
-    Residual eval                       101   8.11ms    0.7%  80.3μs     0.00B    0.0%    0.00B
-    Coarse solve                        101   2.34ms    0.2%  23.2μs    233KiB    0.2%  2.30KiB
-      Presmoother                       202    822μs    0.1%  4.07μs     0.00B    0.0%    0.00B
-      Postsmoother                      202    804μs    0.1%  3.98μs     0.00B    0.0%    0.00B
-      Residual eval                     202    244μs    0.0%  1.21μs     0.00B    0.0%    0.00B
-      Restriction                       202    113μs    0.0%   559ns     0.00B    0.0%    0.00B
-      Prolongation                      202   95.0μs    0.0%   470ns     0.00B    0.0%    0.00B
-      Coarse solve                      101   14.8μs    0.0%   147ns     0.00B    0.0%    0.00B
-    Restriction                         101   1.63ms    0.2%  16.2μs     0.00B    0.0%    0.00B
+      setup transfer operator             1    892μs    0.1%   892μs   8.50MiB    7.8%  8.50MiB
+      row normalization                   1   53.7μs    0.0%  53.7μs     0.00B    0.0%    0.00B
+    coarse solver setup                   1    568μs    0.1%   568μs    546KiB    0.5%   546KiB
+      extend_hierarchy!                   2    509μs    0.0%   254μs    533KiB    0.5%   267KiB
+        fit candidates                    2    150μs    0.0%  74.8μs   82.2KiB    0.1%  41.1KiB
+        improve candidates                2    134μs    0.0%  67.0μs     0.00B    0.0%    0.00B
+        RAP                               2   91.8μs    0.0%  45.9μs    175KiB    0.2%  87.4KiB
+        restriction setup                 2   76.9μs    0.0%  38.4μs    192KiB    0.2%  96.0KiB
+        strength                          2   32.9μs    0.0%  16.5μs   51.6KiB    0.0%  25.8KiB
+        aggregation                       2   16.6μs    0.0%  8.32μs   24.0KiB    0.0%  12.0KiB
+      coarse solver setup                 1   38.6μs    0.0%  38.6μs   3.19KiB    0.0%  3.19KiB
+      prologue                            1   9.85μs    0.0%  9.85μs   6.93KiB    0.0%  6.93KiB
+      ml setup                            1   6.33μs    0.0%  6.33μs      224B    0.0%     224B
+  solve!                                  1   74.0ms    7.0%  74.0ms   4.78MiB    4.4%  4.78MiB
+    Presmoother                         101   25.5ms    2.4%   252μs     0.00B    0.0%    0.00B
+    Postsmoother                        101   25.4ms    2.4%   251μs     0.00B    0.0%    0.00B
+    Residual eval                       101   8.26ms    0.8%  81.8μs     0.00B    0.0%    0.00B
+    Coarse solve                        101   2.33ms    0.2%  23.1μs    233KiB    0.2%  2.30KiB
+      Presmoother                       202    810μs    0.1%  4.01μs     0.00B    0.0%    0.00B
+      Postsmoother                      202    786μs    0.1%  3.89μs     0.00B    0.0%    0.00B
+      Residual eval                     202    252μs    0.0%  1.25μs     0.00B    0.0%    0.00B
+      Restriction                       202    128μs    0.0%   634ns     0.00B    0.0%    0.00B
+      Prolongation                      202   96.2μs    0.0%   476ns     0.00B    0.0%    0.00B
+      Coarse solve                      101   15.7μs    0.0%   155ns     0.00B    0.0%    0.00B
+    Restriction                         101   1.66ms    0.2%  16.4μs     0.00B    0.0%    0.00B
     Prolongation                        101   1.44ms    0.1%  14.2μs     0.00B    0.0%    0.00B
-Galerkin only                             1    202ms   18.6%   202ms   29.5MiB   27.3%  29.5MiB
-  solve!                                  1    174ms   16.0%   174ms   10.7MiB    9.8%  10.7MiB
-    Presmoother                         228   57.4ms    5.3%   252μs     0.00B    0.0%    0.00B
-    Postsmoother                        228   57.3ms    5.3%   251μs     0.00B    0.0%    0.00B
-    Residual eval                       228   18.6ms    1.7%  81.5μs     0.00B    0.0%    0.00B
+Galerkin only                             1    180ms   17.1%   180ms   29.5MiB   27.3%  29.5MiB
+  solve!                                  1    173ms   16.4%   173ms   10.7MiB    9.8%  10.7MiB
+    Presmoother                         228   56.9ms    5.4%   250μs     0.00B    0.0%    0.00B
+    Postsmoother                        228   56.9ms    5.4%   249μs     0.00B    0.0%    0.00B
+    Residual eval                       228   18.4ms    1.7%  80.5μs     0.00B    0.0%    0.00B
     Coarse solve                        228   12.5ms    1.2%  54.8μs    426KiB    0.4%  1.87KiB
-      Presmoother                       228   5.08ms    0.5%  22.3μs     0.00B    0.0%    0.00B
-      Postsmoother                      228   4.99ms    0.5%  21.9μs     0.00B    0.0%    0.00B
-      Residual eval                     228   1.57ms    0.1%  6.87μs     0.00B    0.0%    0.00B
-      Restriction                       228    248μs    0.0%  1.09μs     0.00B    0.0%    0.00B
-      Prolongation                      228    170μs    0.0%   744ns     0.00B    0.0%    0.00B
-      Coarse solve                      228   48.0μs    0.0%   210ns     0.00B    0.0%    0.00B
-    Restriction                         228   3.63ms    0.3%  15.9μs     0.00B    0.0%    0.00B
-    Prolongation                        228   3.16ms    0.3%  13.8μs     0.00B    0.0%    0.00B
-  init                                    1   28.5ms    2.6%  28.5ms   18.9MiB   17.4%  18.9MiB
-    extend_hierarchy!                     1   27.6ms    2.5%  27.6ms   17.8MiB   16.4%  17.8MiB
-      RAP                                 1   24.0ms    2.2%  24.0ms   9.23MiB    8.5%  9.23MiB
-      build prolongator                   1   3.63ms    0.3%  3.63ms   8.56MiB    7.9%  8.56MiB
-        assemble transfer operator        1   2.63ms    0.2%  2.63ms   31.4KiB    0.0%  31.4KiB
-        setup transfer operator           1    936μs    0.1%   936μs   8.50MiB    7.8%  8.50MiB
-        row normalization                 1   32.3μs    0.0%  32.3μs     0.00B    0.0%    0.00B
-      build restriction                   1   80.0ns    0.0%  80.0ns     48.0B    0.0%    48.0B
-    coarse solver setup                   1    862μs    0.1%   862μs   1.05MiB    1.0%  1.05MiB
-      extend_hierarchy!                   1    797μs    0.1%   797μs   1.03MiB    0.9%  1.03MiB
-        improve candidates                1    272μs    0.0%   272μs     0.00B    0.0%    0.00B
-        restriction setup                 1    174μs    0.0%   174μs    740KiB    0.7%   740KiB
-        RAP                               1    159μs    0.0%   159μs   55.0KiB    0.0%  55.0KiB
-        fit candidates                    1   95.8μs    0.0%  95.8μs   56.7KiB    0.1%  56.7KiB
-        strength                          1   86.6μs    0.0%  86.6μs    188KiB    0.2%   188KiB
-        aggregation                       1   3.76μs    0.0%  3.76μs   7.23KiB    0.0%  7.23KiB
-      coarse solver setup                 1   54.8μs    0.0%  54.8μs   10.3KiB    0.0%  10.3KiB
-      ml setup                            1   4.98μs    0.0%  4.98μs      224B    0.0%     224B
-      prologue                            1   2.21μs    0.0%  2.21μs   6.93KiB    0.0%  6.93KiB
-Build preconditioner                      2    114ms   10.5%  57.1ms   31.3MiB   28.9%  15.6MiB
-  pmultigrid hierarchy                    2    114ms   10.5%  57.1ms   31.3MiB   28.9%  15.6MiB
-    extend_hierarchy!                     2   10.3ms    1.0%  5.17ms   26.5MiB   24.4%  13.2MiB
-      build prolongator                   1   3.58ms    0.3%  3.58ms   8.56MiB    7.9%  8.56MiB
-        assemble transfer operator        1   2.63ms    0.2%  2.63ms   31.4KiB    0.0%  31.4KiB
-        setup transfer operator           1    884μs    0.1%   884μs   8.50MiB    7.8%  8.50MiB
-        row normalization                 1   32.3μs    0.0%  32.3μs     0.00B    0.0%    0.00B
-      RAP                                 1   2.65ms    0.2%  2.65ms   9.23MiB    8.5%  9.23MiB
+      Presmoother                       228   5.07ms    0.5%  22.2μs     0.00B    0.0%    0.00B
+      Postsmoother                      228   5.04ms    0.5%  22.1μs     0.00B    0.0%    0.00B
+      Residual eval                     228   1.55ms    0.1%  6.80μs     0.00B    0.0%    0.00B
+      Restriction                       228    250μs    0.0%  1.10μs     0.00B    0.0%    0.00B
+      Prolongation                      228    165μs    0.0%   725ns     0.00B    0.0%    0.00B
+      Coarse solve                      228   46.6μs    0.0%   204ns     0.00B    0.0%    0.00B
+    Restriction                         228   3.60ms    0.3%  15.8μs     0.00B    0.0%    0.00B
+    Prolongation                        228   3.34ms    0.3%  14.6μs     0.00B    0.0%    0.00B
+  init                                    1   7.30ms    0.7%  7.30ms   18.9MiB   17.4%  18.9MiB
+    extend_hierarchy!                     1   6.43ms    0.6%  6.43ms   17.8MiB   16.4%  17.8MiB
+      build prolongator                   1   3.74ms    0.4%  3.74ms   8.56MiB    7.9%  8.56MiB
+        assemble transfer operator        1   2.69ms    0.3%  2.69ms   31.4KiB    0.0%  31.4KiB
+        setup transfer operator           1    967μs    0.1%   967μs   8.50MiB    7.8%  8.50MiB
+        row normalization                 1   35.1μs    0.0%  35.1μs     0.00B    0.0%    0.00B
+      RAP                                 1   2.69ms    0.3%  2.69ms   9.23MiB    8.5%  9.23MiB
+      build restriction                   1    100ns    0.0%   100ns     48.0B    0.0%    48.0B
+    coarse solver setup                   1    850μs    0.1%   850μs   1.05MiB    1.0%  1.05MiB
+      extend_hierarchy!                   1    784μs    0.1%   784μs   1.03MiB    0.9%  1.03MiB
+        improve candidates                1    273μs    0.0%   273μs     0.00B    0.0%    0.00B
+        restriction setup                 1    168μs    0.0%   168μs    740KiB    0.7%   740KiB
+        RAP                               1    145μs    0.0%   145μs   55.0KiB    0.0%  55.0KiB
+        strength                          1   99.1μs    0.0%  99.1μs    188KiB    0.2%   188KiB
+        fit candidates                    1   88.8μs    0.0%  88.8μs   56.7KiB    0.1%  56.7KiB
+        aggregation                       1   3.89μs    0.0%  3.89μs   7.23KiB    0.0%  7.23KiB
+      coarse solver setup                 1   55.0μs    0.0%  55.0μs   10.3KiB    0.0%  10.3KiB
+      ml setup                            1   4.86μs    0.0%  4.86μs      224B    0.0%     224B
+      prologue                            1   2.58μs    0.0%  2.58μs   6.93KiB    0.0%  6.93KiB
+Build preconditioner                      2    134ms   12.7%  66.9ms   31.3MiB   28.9%  15.6MiB
+  pmultigrid hierarchy                    2    134ms   12.7%  66.9ms   31.3MiB   28.9%  15.6MiB
+    extend_hierarchy!                     2   25.6ms    2.4%  12.8ms   26.5MiB   24.4%  13.2MiB
+      RAP                                 1   17.8ms    1.7%  17.8ms   9.23MiB    8.5%  9.23MiB
+      build prolongator                   1   3.70ms    0.4%  3.70ms   8.56MiB    7.9%  8.56MiB
+        assemble transfer operator        1   2.62ms    0.2%  2.62ms   31.4KiB    0.0%  31.4KiB
+        setup transfer operator           1   1.02ms    0.1%  1.02ms   8.50MiB    7.8%  8.50MiB
+        row normalization                 1   34.3μs    0.0%  34.3μs     0.00B    0.0%    0.00B
       assemble transfer operator          1   2.62ms    0.2%  2.62ms   31.4KiB    0.0%  31.4KiB
-      setup transfer operator             1    929μs    0.1%   929μs   8.50MiB    7.8%  8.50MiB
-      assemble coarse operator            1    368μs    0.0%   368μs   27.7KiB    0.0%  27.7KiB
-      setup coarse operator               1   94.3μs    0.0%  94.3μs    107KiB    0.1%   107KiB
-      row normalization                   1   32.6μs    0.0%  32.6μs     0.00B    0.0%    0.00B
-      build restriction                   1   80.0ns    0.0%  80.0ns     48.0B    0.0%    48.0B
-    coarse solver setup                   2   1.37ms    0.1%   684μs   1.58MiB    1.5%   808KiB
-      extend_hierarchy!                   3   1.26ms    0.1%   419μs   1.55MiB    1.4%   528KiB
-        improve candidates                3    381μs    0.0%   127μs     0.00B    0.0%    0.00B
-        restriction setup                 3    255μs    0.0%  84.9μs    932KiB    0.8%   311KiB
-        RAP                               3    240μs    0.0%  80.1μs    230KiB    0.2%  76.6KiB
-        fit candidates                    3    232μs    0.0%  77.4μs    139KiB    0.1%  46.3KiB
-        strength                          3    120μs    0.0%  39.9μs    239KiB    0.2%  79.7KiB
-        aggregation                       3   18.7μs    0.0%  6.23μs   31.2KiB    0.0%  10.4KiB
-      coarse solver setup                 2   89.9μs    0.0%  44.9μs   13.5KiB    0.0%  6.76KiB
-      ml setup                            2   10.3μs    0.0%  5.15μs      448B    0.0%     224B
-      prologue                            2   3.61μs    0.0%  1.80μs   13.9KiB    0.0%  6.93KiB
-CG                                        1   60.7ms    5.6%  60.7ms   92.8KiB    0.1%  92.8KiB
-Galerkin CG                               1   22.1ms    2.0%  22.1ms    826KiB    0.7%   826KiB
-  Presmoother                            29   7.28ms    0.7%   251μs     0.00B    0.0%    0.00B
-  Postsmoother                           29   7.24ms    0.7%   250μs     0.00B    0.0%    0.00B
-  Residual eval                          29   2.32ms    0.2%  80.2μs     0.00B    0.0%    0.00B
-  Coarse solve                           29   1.61ms    0.1%  55.6μs   56.1KiB    0.1%  1.93KiB
-    Presmoother                          29    656μs    0.1%  22.6μs     0.00B    0.0%    0.00B
-    Postsmoother                         29    627μs    0.1%  21.6μs     0.00B    0.0%    0.00B
-    Residual eval                        29    203μs    0.0%  6.99μs     0.00B    0.0%    0.00B
-    Prolongation                         29   35.5μs    0.0%  1.22μs     0.00B    0.0%    0.00B
-    Restriction                          29   34.3μs    0.0%  1.18μs     0.00B    0.0%    0.00B
-    Coarse solve                         29   6.74μs    0.0%   232ns     0.00B    0.0%    0.00B
-  Restriction                            29    467μs    0.0%  16.1μs     0.00B    0.0%    0.00B
-  Prolongation                           29    396μs    0.0%  13.7μs     0.00B    0.0%    0.00B
-Rediscretization CG                       1   21.0ms    1.9%  21.0ms    813KiB    0.7%   813KiB
-  Presmoother                            28   7.23ms    0.7%   258μs     0.00B    0.0%    0.00B
-  Postsmoother                           28   7.12ms    0.7%   254μs     0.00B    0.0%    0.00B
-  Residual eval                          28   2.34ms    0.2%  83.7μs     0.00B    0.0%    0.00B
-  Coarse solve                           28    661μs    0.1%  23.6μs   66.0KiB    0.1%  2.36KiB
-    Presmoother                          56    233μs    0.0%  4.16μs     0.00B    0.0%    0.00B
-    Postsmoother                         56    220μs    0.0%  3.93μs     0.00B    0.0%    0.00B
-    Residual eval                        56   71.3μs    0.0%  1.27μs     0.00B    0.0%    0.00B
-    Restriction                          56   35.0μs    0.0%   625ns     0.00B    0.0%    0.00B
-    Prolongation                         56   27.5μs    0.0%   491ns     0.00B    0.0%    0.00B
-    Coarse solve                         28   5.42μs    0.0%   194ns     0.00B    0.0%    0.00B
-  Restriction                            28    443μs    0.0%  15.8μs     0.00B    0.0%    0.00B
-  Prolongation                           28    399μs    0.0%  14.2μs     0.00B    0.0%    0.00B
+      setup transfer operator             1    945μs    0.1%   945μs   8.50MiB    7.8%  8.50MiB
+      assemble coarse operator            1    365μs    0.0%   365μs   27.7KiB    0.0%  27.7KiB
+      setup coarse operator               1   89.5μs    0.0%  89.5μs    107KiB    0.1%   107KiB
+      row normalization                   1   34.0μs    0.0%  34.0μs     0.00B    0.0%    0.00B
+      build restriction                   1   91.0ns    0.0%  91.0ns     48.0B    0.0%    48.0B
+    coarse solver setup                   2   1.32ms    0.1%   660μs   1.58MiB    1.5%   808KiB
+      extend_hierarchy!                   3   1.21ms    0.1%   405μs   1.55MiB    1.4%   528KiB
+        improve candidates                3    378μs    0.0%   126μs     0.00B    0.0%    0.00B
+        RAP                               3    231μs    0.0%  77.0μs    230KiB    0.2%  76.6KiB
+        fit candidates                    3    230μs    0.0%  76.8μs    139KiB    0.1%  46.3KiB
+        restriction setup                 3    216μs    0.0%  72.1μs    932KiB    0.8%   311KiB
+        strength                          3    129μs    0.0%  43.2μs    239KiB    0.2%  79.7KiB
+        aggregation                       3   18.6μs    0.0%  6.21μs   31.2KiB    0.0%  10.4KiB
+      coarse solver setup                 2   86.4μs    0.0%  43.2μs   13.5KiB    0.0%  6.76KiB
+      ml setup                            2   10.6μs    0.0%  5.30μs      448B    0.0%     224B
+      prologue                            2   3.89μs    0.0%  1.94μs   13.9KiB    0.0%  6.93KiB
+CG                                        1   61.5ms    5.8%  61.5ms   92.8KiB    0.1%  92.8KiB
+Galerkin CG                               1   22.5ms    2.1%  22.5ms    826KiB    0.7%   826KiB
+  Postsmoother                           29   7.40ms    0.7%   255μs     0.00B    0.0%    0.00B
+  Presmoother                            29   7.30ms    0.7%   252μs     0.00B    0.0%    0.00B
+  Residual eval                          29   2.37ms    0.2%  81.6μs     0.00B    0.0%    0.00B
+  Coarse solve                           29   1.64ms    0.2%  56.6μs   56.1KiB    0.1%  1.93KiB
+    Presmoother                          29    671μs    0.1%  23.1μs     0.00B    0.0%    0.00B
+    Postsmoother                         29    649μs    0.1%  22.4μs     0.00B    0.0%    0.00B
+    Residual eval                        29    201μs    0.0%  6.92μs     0.00B    0.0%    0.00B
+    Restriction                          29   33.2μs    0.0%  1.14μs     0.00B    0.0%    0.00B
+    Prolongation                         29   25.7μs    0.0%   885ns     0.00B    0.0%    0.00B
+    Coarse solve                         29   8.02μs    0.0%   276ns     0.00B    0.0%    0.00B
+  Restriction                            29    466μs    0.0%  16.1μs     0.00B    0.0%    0.00B
+  Prolongation                           29    405μs    0.0%  14.0μs     0.00B    0.0%    0.00B
+Rediscretization CG                       1   20.7ms    2.0%  20.7ms    813KiB    0.7%   813KiB
+  Presmoother                            28   7.13ms    0.7%   255μs     0.00B    0.0%    0.00B
+  Postsmoother                           28   7.05ms    0.7%   252μs     0.00B    0.0%    0.00B
+  Residual eval                          28   2.24ms    0.2%  80.1μs     0.00B    0.0%    0.00B
+  Coarse solve                           28    690μs    0.1%  24.6μs   66.0KiB    0.1%  2.36KiB
+    Presmoother                          56    241μs    0.0%  4.31μs     0.00B    0.0%    0.00B
+    Postsmoother                         56    222μs    0.0%  3.97μs     0.00B    0.0%    0.00B
+    Residual eval                        56   94.7μs    0.0%  1.69μs     0.00B    0.0%    0.00B
+    Restriction                          56   33.2μs    0.0%   592ns     0.00B    0.0%    0.00B
+    Prolongation                         56   26.8μs    0.0%   479ns     0.00B    0.0%    0.00B
+    Coarse solve                         28   5.62μs    0.0%   201ns     0.00B    0.0%    0.00B
+  Restriction                            28    450μs    0.0%  16.1μs     0.00B    0.0%    0.00B
+  Prolongation                           28    410μs    0.0%  14.6μs     0.00B    0.0%    0.00B
 <span class="sgr1">-----------------------------------------------------------------------------------------------</span></code></pre><h2 id="linear-elasticity-plain-program"><a class="docs-heading-anchor" href="#linear-elasticity-plain-program">Plain program</a><a id="linear-elasticity-plain-program-1"></a><a class="docs-heading-anchor-permalink" href="#linear-elasticity-plain-program" title="Permalink"></a></h2><p>Here follows a version of the program without any comments. The file is also available here: <a href="../linear_elasticity.jl"><code>linear_elasticity.jl</code></a>.</p><pre><code class="language-julia hljs">using Ferrite, FerriteGmsh, FerriteOperators, FerriteMultigrid, AlgebraicMultigrid
 using Downloads: download
 using IterativeSolvers
@@ -605,4 +605,4 @@ builder_red = PMultigridPreconBuilder(dhh, chh, config_red; pcoarse_solver)
 @timeit &quot;Build preconditioner&quot; Pl_red = builder_red(A)[1]
 @timeit &quot;Rediscretization CG&quot; x_rcg, res_rcg = IterativeSolvers.cg(A, b; Pl = Pl_red, maxiter = 1000, log=true, verbose=false)
 
-print_timer(title = &quot;Analysis with $(getncells(dhh[end].grid)) elements&quot;, linechars = :ascii)</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../">« Home</a><a class="docs-footer-nextpage" href="../hyperelasticity/">Nonlinear Elasticity »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Monday 18 May 2026 11:48">Monday 18 May 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
+print_timer(title = &quot;Analysis with $(getncells(dhh[end].grid)) elements&quot;, linechars = :ascii)</code></pre><hr/><p><em>This page was generated using <a href="https://github.com/fredrikekre/Literate.jl">Literate.jl</a>.</em></p></article><nav class="docs-footer"><a class="docs-footer-prevpage" href="../../">« Home</a><a class="docs-footer-nextpage" href="../hyperelasticity/">Nonlinear Elasticity »</a><div class="flexbox-break"></div><p class="footer-message">Powered by <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> and the <a href="https://julialang.org/">Julia Programming Language</a>.</p></nav></div><div class="modal" id="documenter-settings"><div class="modal-background"></div><div class="modal-card"><header class="modal-card-head"><p class="modal-card-title">Settings</p><button class="delete"></button></header><section class="modal-card-body"><p><label class="label">Theme</label><div class="select"><select id="documenter-themepicker"><option value="auto">Automatic (OS)</option><option value="documenter-light">documenter-light</option><option value="documenter-dark">documenter-dark</option><option value="catppuccin-latte">catppuccin-latte</option><option value="catppuccin-frappe">catppuccin-frappe</option><option value="catppuccin-macchiato">catppuccin-macchiato</option><option value="catppuccin-mocha">catppuccin-mocha</option></select></div></p><hr/><p>This document was generated with <a href="https://github.com/JuliaDocs/Documenter.jl">Documenter.jl</a> version 1.17.0 on <span class="colophon-date" title="Monday 18 May 2026 11:57">Monday 18 May 2026</span>. Using Julia version 1.12.6.</p></section><footer class="modal-card-foot"></footer></div></div></div></body></html>
