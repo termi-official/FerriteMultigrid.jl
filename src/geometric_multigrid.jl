@@ -207,7 +207,11 @@ function gmultigrid(
                 dh_fine, dh_coarse, f2c, crc)
         R = @timeit_debug "build geometric restriction" P'
 
-        push!(levels, Level(cur_A, P, R))
+        @timeit_debug "smoother setup" begin
+            pre = AMG.setup_smoother(presmoother, A, symmetry)
+            post = AMG.setup_smoother(postsmoother, A, symmetry)
+            push!(levels, Level(A, P, R, pre, post))
+        end
 
         cs = config.coarse_strategy
         @timeit_debug "coarse matrix" cur_A = _gmg_coarse_matrix(
