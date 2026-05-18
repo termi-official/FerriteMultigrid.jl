@@ -154,22 +154,34 @@ Build a geometric multigrid preconditioner / solver for `Ax = b`.
 - `Galerkin()` – coarse-grid matrix = R A P  (Galerkin projection)
 - `Rediscretization(integrator)` – re-assembles the operator on each coarse grid
 """
+
+_gmg_coarse_matrix(A, P, R, ::Galerkin, dh_coarse, ch_coarse, u, p) = R * A * P
+
+function _gmg_coarse_matrix(A, P, R, cs::Rediscretization, dh_coarse, ch_coarse, u, p)
+    op = setup_operator(cs.strategy, cs.integrator, dh_coarse)
+    update_operator!(op, p)
+    ch_coarse !== nothing && apply!(op.A, ch_coarse)
+    return op.A
+end
+
 function gmultigrid(
         A::SparseMatrixCSC{T},
         gh::GridHierarchy,
         dhh::DofHandlerHierarchy,
-        chh::ConstraintHandlerHierarchy,
+        chh::Union{ConstraintHandlerHierarchy, Nothing},
         config::GMultigridConfiguration,
         pcoarse_solver;
+        u          = nothing,
         p          = nothing,
         presmoother  = GaussSeidel(),
         postsmoother = GaussSeidel(),
+        symmetry     = AMG.HermitianSymmetry(),
     ) where T
 
     n_levels = length(gh) - 1  # number of level transitions (1 = one coarsening step)
     @assert n_levels >= 1
     @assert length(dhh) == length(gh) "dhh must have length $(length(gh))"
-    @assert length(chh) == length(gh) "chh must have length $(length(gh))"
+    chh !== nothing && @assert length(chh) == length(gh) "chh must have length $(length(gh))"
 
     # AlgebraicMultigrid level list: levels[1] = finest, levels[end] = one above coarsest
     levels = Level{SparseMatrixCSC{T,Int}, SparseMatrixCSC{T,Int}, Adjoint{T, SparseMatrixCSC{T,Int}}}[]
@@ -179,10 +191,16 @@ function gmultigrid(
     cur_A = A
 
     # Iterate from finest → coarsest
+    ch_coarse = nothing
+    ch_fine = nothing
     for k in n_levels:-1:1
         dh_fine   = dhh[k+1]   # fine level   (gh.grids[k+1])
         dh_coarse = dhh[k]     # coarse level (gh.grids[k])
-        ch_coarse = chh[k]
+        # Unpack ch pair if available
+        if chh !== nothing
+            ch_fine   = chh[k+1]
+            ch_coarse = chh[k]
+        end
         f2c  = gh.fine2coarse[k]
         crc  = gh.child_ref_coords[k]
 
@@ -193,16 +211,8 @@ function gmultigrid(
         push!(levels, Level(cur_A, P, R))
 
         cs = config.coarse_strategy
-        if cs isa Galerkin
-            cur_A = @timeit_debug "RAP" R * cur_A * P
-        elseif cs isa Rediscretization
-            coarse_op = @timeit_debug "setup coarse operator" setup_operator(cs.strategy, cs.integrator, dh_coarse)
-            @timeit_debug "assemble coarse operator" update_operator!(coarse_op, p)
-            apply!(coarse_op.A, ch_coarse)
-            cur_A = coarse_op.A
-        else
-            error("Unknown coarsening strategy: $cs")
-        end
+        @timeit_debug "coarse matrix" cur_A = _gmg_coarse_matrix(
+            cur_A, P, R, cs, dh_coarse, ch_coarse, u, p)
 
         coarse_x!(w, size(cur_A, 1))
         coarse_b!(w, size(cur_A, 1))
