@@ -64,11 +64,15 @@ export
     DofHandlerHierarchy,
     ConstraintHandlerHierarchy,
     SubDofHandlerHierarchy,
+    # Multigrid geometry (symbolic phase)
+    MultilevelGeometry,
     # Polynomial multigrid
     PMultigridPreconBuilder,
     PMultigridConfiguration,
     pmultigrid_config,
     pmultigrid,
+    pmultigrid_symbolic,
+    pmultigrid_numeric!,
     # Geometric multigrid
     uniform_refinement,
     GridHierarchy,
@@ -76,6 +80,8 @@ export
     gmultigrid_config,
     GMultigridCoarseSolver,
     GMultigridCoarseSolverBuilder,
-    gmultigrid
+    gmultigrid,
+    gmultigrid_symbolic,
+    gmultigrid_numeric!
 
 end

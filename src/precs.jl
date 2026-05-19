@@ -24,6 +24,10 @@ A factory that builds a [`GMultigridCoarseSolver`](@ref) from a given matrix.
 Intended as the `pcoarse_solver` argument to `pmultigrid` / [`MultigridPreconBuilder`](@ref)
 to chain polynomial and geometric multigrid levels.
 
+The prolongation and restriction operators are assembled once at construction time via
+[`gmultigrid_symbolic`](@ref) and reused across all subsequent calls (i.e. across Newton
+iterations).
+
 # Arguments
 - `gh`             – [`GridHierarchy`](@ref) (index 1 = coarsest, `end` = finest)
 - `dhh`            – [`DofHandlerHierarchy`](@ref) with one handler per grid level
@@ -31,22 +35,24 @@ to chain polynomial and geometric multigrid levels.
 - `gconfig`        – [`GMultigridConfiguration`](@ref) (default: `gmultigrid_config()`)
 - `pcoarse_solver` – coarse solver for the geometric hierarchy (default: `SmoothedAggregationCoarseSolver()`)
 """
-struct GMultigridCoarseSolverBuilder{GH, DHH, CHH, GC, CS}
+struct GMultigridCoarseSolverBuilder{GH, DHH, CHH, GC, CS, G}
     gh::GH
     dhh::DHH
     chh::CHH
     gconfig::GC
     pcoarse_solver::CS
+    geo::G
 end
 
 function GMultigridCoarseSolverBuilder(gh, dhh, chh;
         gconfig        = gmultigrid_config(),
         pcoarse_solver = SmoothedAggregationCoarseSolver())
-    return GMultigridCoarseSolverBuilder(gh, dhh, chh, gconfig, pcoarse_solver)
+    geo = gmultigrid_symbolic(gh, dhh)
+    return GMultigridCoarseSolverBuilder(gh, dhh, chh, gconfig, pcoarse_solver, geo)
 end
 
 function (b::GMultigridCoarseSolverBuilder)(A::SparseMatrixCSC)
-    ml = gmultigrid(A, b.gh, b.dhh, b.chh, b.gconfig, b.pcoarse_solver)
+    ml = gmultigrid_numeric!(b.geo, A, b.gh, b.dhh, b.chh, b.gconfig, b.pcoarse_solver)
     return GMultigridCoarseSolver(ml)
 end
 
@@ -57,17 +63,22 @@ A callable preconditioner builder for use with `LinearSolve.KrylovJL_CG(precs = 
 When called as `builder(A, p)`, it assembles the polynomial multigrid hierarchy and returns
 `(aspreconditioner(ml), I)`.
 
+The prolongation and restriction operators are assembled once at construction time via
+[`pmultigrid_symbolic`](@ref) and reused across all subsequent calls (i.e. across Newton
+iterations), so only the smoother setup and coarse-matrix computation are repeated.
+
 `pcoarse_solver` may be any coarse-solver factory (e.g. `SmoothedAggregationCoarseSolver()`,
 `GMultigridCoarseSolverBuilder(gh, dhh, chh)`) allowing arbitrary chaining of multigrid
 strategies.
 """
-struct PMultigridPreconBuilder{Tk, CS, C}
+struct PMultigridPreconBuilder{Tk, CS, C, G}
     dhh::DofHandlerHierarchy
     chh::Union{ConstraintHandlerHierarchy, Nothing}
     pgrid_config::PMultigridConfiguration
     pcoarse_solver::CS
     blocksize::Int
     cycle::C
+    geo::G
     kwargs::Tk
 end
 
@@ -79,7 +90,8 @@ function PMultigridPreconBuilder(
         blocksize      = 1,
         kwargs...
     )
-    return PMultigridPreconBuilder(dh, ch, pgrid_config, pcoarse_solver, blocksize, cycle, kwargs)
+    geo = pmultigrid_symbolic(dh, pgrid_config)
+    return PMultigridPreconBuilder(dh, ch, pgrid_config, pcoarse_solver, blocksize, cycle, geo, kwargs)
 end
 
 function PMultigridPreconBuilder(
@@ -90,7 +102,8 @@ function PMultigridPreconBuilder(
         blocksize      = 1,
         kwargs...
     )
-    return PMultigridPreconBuilder(dh, nothing, pgrid_config, pcoarse_solver, blocksize, cycle, kwargs)
+    geo = pmultigrid_symbolic(dh, pgrid_config)
+    return PMultigridPreconBuilder(dh, nothing, pgrid_config, pcoarse_solver, blocksize, cycle, geo, kwargs)
 end
 
 function (b::PMultigridPreconBuilder)(A::AbstractSparseMatrixCSC, p = nothing)
@@ -98,6 +111,6 @@ function (b::PMultigridPreconBuilder)(A::AbstractSparseMatrixCSC, p = nothing)
 end
 
 function (b::PMultigridPreconBuilder)(A::SparseMatrixCSC, p = nothing)
-    ml = @timeit_debug "pmultigrid hierarchy" pmultigrid(A, b.dhh, b.chh, b.pgrid_config, b.pcoarse_solver, Val{b.blocksize}; b.kwargs...)
+    ml = @timeit_debug "pmultigrid hierarchy" pmultigrid_numeric!(b.geo, A, b.dhh, b.chh, b.pgrid_config, b.pcoarse_solver, Val{b.blocksize}; b.kwargs...)
     return (aspreconditioner(ml, b.cycle), I)
 end
