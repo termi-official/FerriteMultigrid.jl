@@ -208,9 +208,9 @@ function gmultigrid(
         R = @timeit_debug "build geometric restriction" P'
 
         @timeit_debug "smoother setup" begin
-            pre = AMG.setup_smoother(presmoother, A, symmetry)
-            post = AMG.setup_smoother(postsmoother, A, symmetry)
-            push!(levels, Level(A, P, R, pre, post))
+            pre = AMG.setup_smoother(presmoother, cur_A, symmetry)
+            post = AMG.setup_smoother(postsmoother, cur_A, symmetry)
+            push!(levels, Level(cur_A, P, R, pre, post))
         end
 
         cs = config.coarse_strategy
