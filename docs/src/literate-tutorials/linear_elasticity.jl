@@ -97,15 +97,14 @@ function assemble_global!(K, dh, cellvalues, C)
 end
 
 function linear_elasticity_2d(C)
-    # logo_mesh = "logo.geo"
-    # asset_url = "https://raw.githubusercontent.com/Ferrite-FEM/Ferrite.jl/gh-pages/assets/"
-    # isfile(logo_mesh) || download(string(asset_url, logo_mesh), logo_mesh)
+    logo_mesh = "logo.geo"
+    asset_url = "https://raw.githubusercontent.com/Ferrite-FEM/Ferrite.jl/gh-pages/assets/"
+    isfile(logo_mesh) || download(string(asset_url, logo_mesh), logo_mesh)
 
-    # grid = togrid(logo_mesh)
-    grid = generate_grid(Triangle, (1, 1))
-    # addfacetset!(grid, "top", x -> x[2] ≈ 1.0) # facets for which x[2] ≈ 1.0 for all nodes
-    # addfacetset!(grid, "left", x -> abs(x[1]) < 1.0e-6)
-    # addfacetset!(grid, "bottom", x -> abs(x[2]) < 1.0e-6)
+    grid = togrid(logo_mesh)
+    addfacetset!(grid, "top", x -> x[2] ≈ 1.0) # facets for which x[2] ≈ 1.0 for all nodes
+    addfacetset!(grid, "left", x -> abs(x[1]) < 1.0e-6)
+    addfacetset!(grid, "bottom", x -> abs(x[2]) < 1.0e-6)
 
     dim = 2
     order = 4
@@ -240,40 +239,41 @@ reset_timer!()
 
 pcoarse_solver = SmoothedAggregationCoarseSolver(; B)
 
-# # #### 0. CG as baseline
-# @timeit "CG" x_cg = IterativeSolvers.cg(A, b; maxiter = 1000, verbose=false)
+# #### 0. CG as baseline
+@timeit "CG" x_cg = IterativeSolvers.cg(A, b; maxiter = 1000, verbose=false)
 
-# # #### 1. Galerkin Coarsening Strategy
-# config_gal = pmultigrid_config(coarse_strategy = Galerkin())
-# @timeit "Galerkin only" x_gal, res_gal = solve(A, b, dhh, chh, config_gal; pcoarse_solver, log=true, maxiter = 1000, rtol = 1e-10)
+# #### 1. Galerkin Coarsening Strategy
+config_gal = pmultigrid_config(coarse_strategy = Galerkin())
+@timeit "Galerkin only" x_gal, res_gal = solve(A, b, dhh, chh, config_gal; pcoarse_solver, log=true, maxiter = 1000, rtol = 1e-10)
 
-# builder_gal = PMultigridPreconBuilder(dhh, chh, config_gal; pcoarse_solver)
-# @timeit "Build preconditioner" Pl_gal = builder_gal(A)[1]
-# @timeit "Galerkin CG" x_gcg, res_gcg = IterativeSolvers.cg(A, b; Pl = Pl_gal, maxiter = 1000, log=true, verbose=false)
+builder_gal = PMultigridPreconBuilder(dhh, chh, config_gal; pcoarse_solver)
+@timeit "Build preconditioner" Pl_gal = builder_gal(A)[1]
+@timeit "Galerkin CG" x_gcg, res_gcg = IterativeSolvers.cg(A, b; Pl = Pl_gal, maxiter = 1000, log=true, verbose=false)
 
-# # #### 2. Rediscretization Coarsening Strategy
-# ## Rediscretization Coarsening Strategy
+# #### 2. Rediscretization Coarsening Strategy
+## Rediscretization Coarsening Strategy
 config_red = pmultigrid_config(coarse_strategy = Rediscretization(LinearElasticityIntegrator(C, QuadratureRuleCollection(7))))
 @timeit "Rediscretization only" x_red, res_red = solve(A, b, dhh, chh, config_red; pcoarse_solver, log=true, maxiter = 1000, rtol = 1e-10)
 
+# Broken. See https://github.com/JuliaLang/julia/issues/61839
 builder_red = PMultigridPreconBuilder(dhh, chh, config_red; pcoarse_solver)
 @timeit "Build preconditioner" Pl_red = builder_red(A)[1]
 @timeit "Rediscretization CG" x_rcg, res_rcg = IterativeSolvers.cg(A, b; Pl = Pl_red, maxiter = 1000, log=true, verbose=false)
 
 print_timer(title = "Analysis with $(getncells(dhh[end].grid)) elements", linechars = :ascii)
 
-# # ### Test the solution                                                                          #src
-# using Test                                                                                       #src
-# @testset "Linear Elasticity Example" begin                                                       #src
-#     println("Final residual with Galerkin coarsening: ", res_gal[end])                           #src
-#     @test A * x_gal ≈ b atol=1e-4                                                                #src
-#     println("Final residual with Galerkin CG: ", res_gcg.data[:resnorm][end])                    #src
-#     @test A * x_gcg ≈ b atol=1e-4                                                                #src
-#     println("Final residual with Rediscretization coarsening: ", res_red[end])                   #src
-#     @test A * x_red ≈ b atol=1e-4                                                                #src
-#     println("Final residual with Rediscretization coarsening: ", res_rcg.data[:resnorm][end])    #src
-#     @test A * x_rcg ≈ b atol=1e-4                                                                #src
-# end                                                                                              #src
+# ### Test the solution                                                                          #src
+using Test                                                                                       #src
+@testset "Linear Elasticity Example" begin                                                       #src
+    println("Final residual with Galerkin coarsening: ", res_gal[end])                           #src
+    @test A * x_gal ≈ b                                                                          #src
+    println("Final residual with Galerkin CG: ", res_gcg.data[:resnorm][end])                    #src
+    @test A * x_gcg ≈ b                                                                          #src
+    println("Final residual with Rediscretization coarsening: ", res_red[end])                   #src
+    @test A * x_red ≈ b                                                                          #src
+    println("Final residual with Rediscretization coarsening: ", res_rcg.data[:resnorm][end])    #src
+    @test A * x_rcg ≈ b                                                                          #src
+end                                                                                              #src
 
 
 
