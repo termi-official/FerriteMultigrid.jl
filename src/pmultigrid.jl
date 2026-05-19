@@ -124,7 +124,7 @@ function extend_hierarchy!(levels, fine_dh, fine_ch, coarse_dh, coarse_ch, A, cs
         post = AMG.setup_smoother(postsmoother, A, symmetry)
         push!(levels, Level(A, P, R, pre, post))
     end
-    RAP = @timeit_debug "RAP" R * A * P # Galerkin projection
+    RAP = @timeit_debug "RAP" rap_threaded(R, A, P) # fused Galerkin projection
     return RAP
 end
 
