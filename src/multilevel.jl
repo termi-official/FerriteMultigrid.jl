@@ -56,6 +56,66 @@ function solve!(solt::MGSolver, args...; kwargs...)
 end
 
 """
+    CachedLinearCoarseSolver <: CoarseSolver
+
+Coarse solver that wraps a `LinearSolve.LinearCache`.  On the first solve after
+a hierarchy rebuild (signalled by `isfresh = true` on the underlying cache),
+the numeric factorization is updated.  If `UMFPACKFactorization(reuse_symbolic=true)`
+is used (the default), the symbolic analysis is also reused, so only the numeric
+LU is recomputed.  All subsequent coarse solves within the same Newton step reuse
+the cached factorization without any recomputation.
+"""
+struct CachedLinearCoarseSolver{C <: LinearSolve.LinearCache} <: CoarseSolver
+    linsolve::C
+end
+
+function (c::CachedLinearCoarseSolver)(x::AbstractVector, b::AbstractVector)
+    c.linsolve.b = b
+    x .= LinearSolve.solve!(c.linsolve).u
+    return x
+end
+
+"""
+    CachedLinearSolveCoarseSolverBuilder(alg)
+
+A coarse solver builder that reuses the `LinearSolve` factorization cache across
+hierarchy rebuilds (e.g. Newton iterations on a fixed mesh).
+
+On the **first** call with a matrix `A`, a full symbolic + numeric factorization
+is performed.  On subsequent calls, `LinearSolve.reinit!` marks the cache as fresh
+with the new matrix, so only the numeric factorization is repeated.  This is
+particularly effective with `UMFPACKFactorization(reuse_symbolic=true)` (the default),
+which stores the UMFPACK fill-reducing permutation and symbolic LU across solves.
+
+The sparsity pattern of the coarse matrix is guaranteed to be fixed for polynomial
+and geometric multigrid on a fixed mesh, so symbolic reuse is always valid here.
+"""
+struct CachedLinearSolveCoarseSolverBuilder
+    alg::LinearSolve.SciMLLinearSolveAlgorithm
+    solver_ref::Ref{Any}
+end
+
+function CachedLinearSolveCoarseSolverBuilder(alg::LinearSolve.SciMLLinearSolveAlgorithm)
+    return CachedLinearSolveCoarseSolverBuilder(alg, Ref{Any}(nothing))
+end
+
+function (b::CachedLinearSolveCoarseSolverBuilder)(A::AbstractMatrix)
+    if b.solver_ref[] === nothing
+        rhs_tmp = zeros(eltype(A), size(A, 1))
+        u_tmp   = zeros(eltype(A), size(A, 2))
+        linprob = LinearSolve.LinearProblem(A, rhs_tmp; u0 = u_tmp, alias_A = false, alias_b = false)
+        linsolve = LinearSolve.init(linprob, b.alg)
+        b.solver_ref[] = CachedLinearCoarseSolver(linsolve)
+    else
+        # Updating .A triggers setproperty! which sets isfresh = true.
+        # On the next solve! call, UMFPACKFactorization will call lu!(cacheval, A)
+        # reusing the symbolic factorization when the sparsity pattern is unchanged.
+        b.solver_ref[].linsolve.A = A
+    end
+    return b.solver_ref[]
+end
+
+"""
     solve(A, b, dhh, chh, config; pcoarse_solver, kwargs...)
 
 Solve `Ax = b` using polynomial multigrid given a pre-built

@@ -35,24 +35,33 @@ iterations).
 - `gconfig`        – [`GMultigridConfiguration`](@ref) (default: `gmultigrid_config()`)
 - `pcoarse_solver` – coarse solver for the geometric hierarchy (default: `SmoothedAggregationCoarseSolver()`)
 """
-struct GMultigridCoarseSolverBuilder{GH, DHH, CHH, GC, CS, G}
+struct GMultigridCoarseSolverBuilder{GH, DHH, CHH, GC, CS}
     gh::GH
     dhh::DHH
     chh::CHH
     gconfig::GC
     pcoarse_solver::CS
-    geo::G
+    geo_ref::Ref{Any}
 end
 
 function GMultigridCoarseSolverBuilder(gh, dhh, chh;
         gconfig        = gmultigrid_config(),
         pcoarse_solver = SmoothedAggregationCoarseSolver())
-    geo = gmultigrid_symbolic(gh, dhh)
-    return GMultigridCoarseSolverBuilder(gh, dhh, chh, gconfig, pcoarse_solver, geo)
+    # For Galerkin, geo is built on first call (when A is available).
+    # For Rediscretization, build it now (no A needed).
+    geo_ref = if gconfig.coarse_strategy isa Galerkin
+        Ref{Any}(nothing)
+    else
+        Ref{Any}(gmultigrid_symbolic(gh, dhh, gconfig))
+    end
+    return GMultigridCoarseSolverBuilder(gh, dhh, chh, gconfig, pcoarse_solver, geo_ref)
 end
 
 function (b::GMultigridCoarseSolverBuilder)(A::SparseMatrixCSC)
-    ml = gmultigrid_numeric!(b.geo, A, b.gh, b.dhh, b.chh, b.gconfig, b.pcoarse_solver)
+    if b.geo_ref[] === nothing
+        b.geo_ref[] = gmultigrid_symbolic(b.gh, b.dhh, b.gconfig, A)
+    end
+    ml = gmultigrid_numeric!(b.geo_ref[], A, b.gh, b.dhh, b.chh, b.gconfig, b.pcoarse_solver)
     return GMultigridCoarseSolver(ml)
 end
 
@@ -63,22 +72,23 @@ A callable preconditioner builder for use with `LinearSolve.KrylovJL_CG(precs = 
 When called as `builder(A, p)`, it assembles the polynomial multigrid hierarchy and returns
 `(aspreconditioner(ml), I)`.
 
-The prolongation and restriction operators are assembled once at construction time via
-[`pmultigrid_symbolic`](@ref) and reused across all subsequent calls (i.e. across Newton
-iterations), so only the smoother setup and coarse-matrix computation are repeated.
+For the Galerkin strategy, the full symbolic phase (prolongators, restrictors, and RAP
+workspace pre-allocation) is performed on the **first** call when `A` is available, and the
+result is cached for all subsequent Newton iterations.  For Rediscretization, the P/R
+operators are built eagerly at construction time.
 
 `pcoarse_solver` may be any coarse-solver factory (e.g. `SmoothedAggregationCoarseSolver()`,
 `GMultigridCoarseSolverBuilder(gh, dhh, chh)`) allowing arbitrary chaining of multigrid
 strategies.
 """
-struct PMultigridPreconBuilder{Tk, CS, C, G}
+struct PMultigridPreconBuilder{Tk, CS, C}
     dhh::DofHandlerHierarchy
     chh::Union{ConstraintHandlerHierarchy, Nothing}
     pgrid_config::PMultigridConfiguration
     pcoarse_solver::CS
     blocksize::Int
     cycle::C
-    geo::G
+    geo_ref::Ref{Any}
     kwargs::Tk
 end
 
@@ -90,8 +100,12 @@ function PMultigridPreconBuilder(
         blocksize      = 1,
         kwargs...
     )
-    geo = pmultigrid_symbolic(dh, pgrid_config)
-    return PMultigridPreconBuilder(dh, ch, pgrid_config, pcoarse_solver, blocksize, cycle, geo, kwargs)
+    geo_ref = if pgrid_config.coarse_strategy isa Galerkin
+        Ref{Any}(nothing)
+    else
+        Ref{Any}(pmultigrid_symbolic(dh, pgrid_config))
+    end
+    return PMultigridPreconBuilder(dh, ch, pgrid_config, pcoarse_solver, blocksize, cycle, geo_ref, kwargs)
 end
 
 function PMultigridPreconBuilder(
@@ -102,8 +116,7 @@ function PMultigridPreconBuilder(
         blocksize      = 1,
         kwargs...
     )
-    geo = pmultigrid_symbolic(dh, pgrid_config)
-    return PMultigridPreconBuilder(dh, nothing, pgrid_config, pcoarse_solver, blocksize, cycle, geo, kwargs)
+    return PMultigridPreconBuilder(dh, nothing, pgrid_config, pcoarse_solver, blocksize, cycle, Ref{Any}(nothing), kwargs)
 end
 
 function (b::PMultigridPreconBuilder)(A::AbstractSparseMatrixCSC, p = nothing)
@@ -111,6 +124,9 @@ function (b::PMultigridPreconBuilder)(A::AbstractSparseMatrixCSC, p = nothing)
 end
 
 function (b::PMultigridPreconBuilder)(A::SparseMatrixCSC, p = nothing)
-    ml = @timeit_debug "pmultigrid hierarchy" pmultigrid_numeric!(b.geo, A, b.dhh, b.chh, b.pgrid_config, b.pcoarse_solver, Val{b.blocksize}; b.kwargs...)
+    if b.geo_ref[] === nothing
+        b.geo_ref[] = pmultigrid_symbolic(b.dhh, b.pgrid_config, A)
+    end
+    ml = @timeit_debug "pmultigrid hierarchy" pmultigrid_numeric!(b.geo_ref[], A, b.dhh, b.chh, b.pgrid_config, b.pcoarse_solver, Val{b.blocksize}; b.kwargs...)
     return (aspreconditioner(ml, b.cycle), I)
 end
