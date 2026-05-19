@@ -140,6 +140,5 @@ function extend_hierarchy!(levels, fine_dh, fine_ch, coarse_dh, coarse_ch, A, cs
     op = @timeit_debug "setup coarse operator" setup_operator(cs.strategy, cs.integrator, coarse_dh)
     @timeit_debug "assemble coarse operator" update_operator!(op, p) # TODO might call update_linearization! instead.
     coarse_ch !== nothing && apply!(op.A, coarse_ch)
-    A = op.A
-    return A
+    return op.A
 end
