@@ -133,7 +133,7 @@ end
 ## gmultigrid                                                        ##
 #######################################################################
 
-_gmg_coarse_matrix(A, P, R, ::Galerkin, dh_coarse, ch_coarse, u, p) = R * A * P
+_gmg_coarse_matrix(A, P, R, ::Galerkin, dh_coarse, ch_coarse, u, p) = rap_threaded(R, A, P) # fused Galerkin projection
 
 function _gmg_coarse_matrix(A, P, R, cs::Rediscretization, dh_coarse, ch_coarse, u, p)
     op = setup_operator(cs.strategy, cs.integrator, dh_coarse)

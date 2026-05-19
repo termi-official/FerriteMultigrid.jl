@@ -43,6 +43,7 @@ import FerriteOperators:
 import Ferrite: get_grid
 
 include("prolongator.jl")
+include("rap.jl")
 include("handler_hierarchy.jl")
 include("pmultigrid.jl")
 include("multilevel.jl")
