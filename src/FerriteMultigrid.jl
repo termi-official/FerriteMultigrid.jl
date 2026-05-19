@@ -82,6 +82,9 @@ export
     GMultigridCoarseSolverBuilder,
     gmultigrid,
     gmultigrid_symbolic,
-    gmultigrid_numeric!
+    gmultigrid_numeric!,
+    # Cached direct coarse solver
+    CachedLinearSolveCoarseSolverBuilder,
+    CachedLinearCoarseSolver
 
 end

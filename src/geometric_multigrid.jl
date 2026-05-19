@@ -133,9 +133,10 @@ end
 ## gmultigrid                                                        ##
 #######################################################################
 
-_gmg_coarse_matrix(A, P, R, ::Galerkin, dh_coarse, ch_coarse, u, p) = rap_threaded(R, A, P) # fused Galerkin projection
+_gmg_coarse_matrix(A, P, R, ::Galerkin, dh_coarse, ch_coarse, u, p, rap_ws::RAPWorkspace) =
+    rap_numeric!(rap_ws, A)
 
-function _gmg_coarse_matrix(A, P, R, cs::Rediscretization, dh_coarse, ch_coarse, u, p)
+function _gmg_coarse_matrix(A, P, R, cs::Rediscretization, dh_coarse, ch_coarse, u, p, ::Nothing)
     op = setup_operator(cs.strategy, cs.integrator, dh_coarse)
     update_operator!(op, p)
     ch_coarse !== nothing && apply!(op.A, ch_coarse)
@@ -143,21 +144,27 @@ function _gmg_coarse_matrix(A, P, R, cs::Rediscretization, dh_coarse, ch_coarse,
 end
 
 """
-    gmultigrid_symbolic(gh, dhh)
+    gmultigrid_symbolic(gh, dhh, config, A)
 
-Build the [`MultilevelGeometry`](@ref) for a geometric multigrid hierarchy.
-Assembles all prolongation and restriction operators once from the grid hierarchy;
-these can be reused across Newton iterations via [`gmultigrid_numeric!`](@ref).
+Build the [`MultilevelGeometry`](@ref) for a geometric multigrid hierarchy with
+the Galerkin coarsening strategy.
+
+Assembles all prolongation/restriction operators and, using the fine-grid matrix
+`A`, pre-allocates one [`RAPWorkspace`](@ref) per level (chaining coarse matrices
+through the hierarchy).
+
+Index 1 of `dhh` (and `gh`) must be the coarsest level and index `end` the finest.
 """
 function gmultigrid_symbolic(
         gh::GridHierarchy,
         dhh::DofHandlerHierarchy,
+        config::GMultigridConfiguration{<:Galerkin},
+        A::SparseMatrixCSC,
     )
     n_levels = length(gh) - 1
     @assert n_levels >= 1
     @assert length(dhh) == length(gh)
 
-    # Build first pair to establish concrete types.
     P0 = @timeit_debug "build geometric prolongator" build_geometric_prolongator(
             dhh[n_levels+1], dhh[n_levels], gh.fine2coarse[n_levels], gh.child_ref_coords[n_levels])
     R0 = @timeit_debug "build geometric restriction" P0'
@@ -172,7 +179,47 @@ function gmultigrid_symbolic(
         push!(pairs, (P, R))
     end
 
-    return MultilevelGeometry(pairs)
+    workspaces = Vector{RAPWorkspace}(undef, n_levels)
+    cur_A = A
+    for (i, (P, R)) in enumerate(pairs)
+        ws = @timeit_debug "RAP symbolic" rap_symbolic(R, cur_A, P)
+        workspaces[i] = ws
+        cur_A = ws.C
+    end
+
+    return MultilevelGeometry(pairs, workspaces)
+end
+
+"""
+    gmultigrid_symbolic(gh, dhh, config)
+
+Build the [`MultilevelGeometry`](@ref) for a geometric multigrid hierarchy with
+the Rediscretization coarsening strategy (no RAP workspaces).
+"""
+function gmultigrid_symbolic(
+        gh::GridHierarchy,
+        dhh::DofHandlerHierarchy,
+        config::GMultigridConfiguration{<:Rediscretization},
+    )
+    n_levels = length(gh) - 1
+    @assert n_levels >= 1
+    @assert length(dhh) == length(gh)
+
+    P0 = @timeit_debug "build geometric prolongator" build_geometric_prolongator(
+            dhh[n_levels+1], dhh[n_levels], gh.fine2coarse[n_levels], gh.child_ref_coords[n_levels])
+    R0 = @timeit_debug "build geometric restriction" P0'
+
+    pairs = Vector{Tuple{typeof(P0), typeof(R0)}}()
+    push!(pairs, (P0, R0))
+
+    for k in n_levels-1:-1:1
+        P = @timeit_debug "build geometric prolongator" build_geometric_prolongator(
+                dhh[k+1], dhh[k], gh.fine2coarse[k], gh.child_ref_coords[k])
+        R = @timeit_debug "build geometric restriction" P'
+        push!(pairs, (P, R))
+    end
+
+    return MultilevelGeometry(pairs, nothing)
 end
 
 """
@@ -223,8 +270,9 @@ function gmultigrid_numeric!(
             push!(levels, Level(cur_A, P, R, pre, post))
         end
 
+        rap_ws = geo.rap_workspaces !== nothing ? geo.rap_workspaces[i] : nothing
         cur_A = @timeit_debug "coarse matrix" _gmg_coarse_matrix(
-            cur_A, P, R, cs, dh_coarse, ch_coarse, u, p)
+            cur_A, P, R, cs, dh_coarse, ch_coarse, u, p, rap_ws)
 
         coarse_x!(w, size(cur_A, 1))
         coarse_b!(w, size(cur_A, 1))
@@ -266,12 +314,26 @@ function gmultigrid(
         gh::GridHierarchy,
         dhh::DofHandlerHierarchy,
         chh::Union{ConstraintHandlerHierarchy, Nothing},
-        config::GMultigridConfiguration,
+        config::GMultigridConfiguration{<:Galerkin},
         pcoarse_solver;
         kwargs...,
     ) where T
 
-    geo = @timeit_debug "gmultigrid symbolic" gmultigrid_symbolic(gh, dhh)
+    geo = @timeit_debug "gmultigrid symbolic" gmultigrid_symbolic(gh, dhh, config, A)
+    return @timeit_debug "gmultigrid numeric" gmultigrid_numeric!(geo, A, gh, dhh, chh, config, pcoarse_solver; kwargs...)
+end
+
+function gmultigrid(
+        A::SparseMatrixCSC{T},
+        gh::GridHierarchy,
+        dhh::DofHandlerHierarchy,
+        chh::Union{ConstraintHandlerHierarchy, Nothing},
+        config::GMultigridConfiguration{<:Rediscretization},
+        pcoarse_solver;
+        kwargs...,
+    ) where T
+
+    geo = @timeit_debug "gmultigrid symbolic" gmultigrid_symbolic(gh, dhh, config)
     return @timeit_debug "gmultigrid numeric" gmultigrid_numeric!(geo, A, gh, dhh, chh, config, pcoarse_solver; kwargs...)
 end
 
