@@ -1,3 +1,51 @@
+struct PolynomialProlongationIntegrator <: AbstractTransferIntegrator
+    field_name::Symbol
+end
+
+struct NodalPolynomialProlongationElementCache{CV <: CellValues} <: AbstractTransferElementCache
+    cv::CV
+    vdim::Int
+end
+
+function FerriteOperators.duplicate_for_device(device, cache::NodalPolynomialProlongationElementCache)
+    return NodalPolynomialProlongationElementCache(
+        FerriteOperators.duplicate_for_device(device, cache.cv),
+        cache.vdim,
+    )
+end
+
+function FerriteOperators.assemble_transfer_element!(Pₑ::AbstractMatrix, cell, element_cache::NodalPolynomialProlongationElementCache, p)
+    (; cv, vdim) = element_cache
+
+    if vdim > 1
+        for i in 1:getnquadpoints(cv)
+            for j in 1:getnbasefunctions(cv)
+                val = shape_value(cv, i, j)
+                for k in 1:vdim
+                    Pₑ[vdim*(i-1)+k, j] += val[k]
+                end
+            end
+        end
+    else
+        for i in 1:getnquadpoints(cv)
+            for j in 1:getnbasefunctions(cv)
+                Pₑ[i, j] += shape_value(cv, i, j)
+            end
+        end
+    end
+end
+
+function FerriteOperators.setup_transfer_element_cache(element_model::PolynomialProlongationIntegrator, sdh_row::SubDofHandler, sdh_col::SubDofHandler)
+    field_name = element_model.field_name
+    ip1        = Ferrite.getfieldinterpolation(sdh_row, field_name)
+    ip2        = Ferrite.getfieldinterpolation(sdh_col, field_name)
+    ip_geo     = FerriteOperators.geometric_subdomain_interpolation(sdh_row)
+    positions  = Ferrite.reference_coordinates(ip1)
+    ref_shape  = Ferrite.getrefshape(ip1)
+    qr         = QuadratureRule{ref_shape}([NaN for _ = 1:length(positions)], positions)
+    return NodalPolynomialProlongationElementCache(CellValues(qr, ip2, ip_geo), Ferrite.n_components(ip2))
+end
+
 """
     build_prolongator(fine_dh::DofHandler, coarse_dh::DofHandler)
 
@@ -16,7 +64,7 @@ function build_prolongator(
     # FIXME multi-field support
     @assert length(fine_dh.field_names) == 1 "Multiple fields not yet supported"
     qr_order    = 2 * getorder(fine_dh.subdofhandlers[1].field_interpolations[1])
-    integrator  = MassProlongatorIntegrator(QuadratureRuleCollection(qr_order), field_name)
+    integrator  = PolynomialProlongationIntegrator(field_name)
     strategy    = SequentialAssemblyStrategy(SequentialCPUDevice())
 
     op = @timeit_debug "setup transfer operator" setup_transfer_operator(strategy, integrator, fine_dh, coarse_dh)
