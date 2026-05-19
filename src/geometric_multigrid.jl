@@ -143,9 +143,107 @@ function _gmg_coarse_matrix(A, P, R, cs::Rediscretization, dh_coarse, ch_coarse,
 end
 
 """
+    gmultigrid_symbolic(gh, dhh)
+
+Build the [`MultilevelGeometry`](@ref) for a geometric multigrid hierarchy.
+Assembles all prolongation and restriction operators once from the grid hierarchy;
+these can be reused across Newton iterations via [`gmultigrid_numeric!`](@ref).
+"""
+function gmultigrid_symbolic(
+        gh::GridHierarchy,
+        dhh::DofHandlerHierarchy,
+    )
+    n_levels = length(gh) - 1
+    @assert n_levels >= 1
+    @assert length(dhh) == length(gh)
+
+    # Build first pair to establish concrete types.
+    P0 = @timeit_debug "build geometric prolongator" build_geometric_prolongator(
+            dhh[n_levels+1], dhh[n_levels], gh.fine2coarse[n_levels], gh.child_ref_coords[n_levels])
+    R0 = @timeit_debug "build geometric restriction" P0'
+
+    pairs = Vector{Tuple{typeof(P0), typeof(R0)}}()
+    push!(pairs, (P0, R0))
+
+    for k in n_levels-1:-1:1
+        P = @timeit_debug "build geometric prolongator" build_geometric_prolongator(
+                dhh[k+1], dhh[k], gh.fine2coarse[k], gh.child_ref_coords[k])
+        R = @timeit_debug "build geometric restriction" P'
+        push!(pairs, (P, R))
+    end
+
+    return MultilevelGeometry(pairs)
+end
+
+"""
+    gmultigrid_numeric!(geo, A, gh, dhh, chh, config, pcoarse_solver; kwargs...)
+
+Build a geometric multigrid `MultiLevel` using a pre-built [`MultilevelGeometry`](@ref).
+Performs only the numeric phase (smoother setup + coarse-matrix computation).
+"""
+function gmultigrid_numeric!(
+        geo::MultilevelGeometry,
+        A::SparseMatrixCSC{T},
+        gh::GridHierarchy,
+        dhh::DofHandlerHierarchy,
+        chh::Union{ConstraintHandlerHierarchy, Nothing},
+        config::GMultigridConfiguration,
+        pcoarse_solver;
+        u          = nothing,
+        p          = nothing,
+        presmoother  = GaussSeidel(),
+        postsmoother = GaussSeidel(),
+        symmetry     = AMG.HermitianSymmetry(),
+    ) where T
+
+    n_levels = length(gh) - 1
+    @assert n_levels >= 1
+    @assert length(geo.levels) == n_levels
+    @assert length(dhh) == length(gh)
+    chh !== nothing && @assert length(chh) == length(gh)
+
+    TP, TR = fieldtypes(eltype(geo.levels))
+    TA = SparseMatrixCSC{T, Int}
+    levels = Vector{Level{TA, TP, TR}}()
+    w      = MultiLevelWorkspace(Val{1}, T)
+    residual!(w, size(A, 1))
+
+    cs    = config.coarse_strategy
+    cur_A = A
+
+    ch_coarse = nothing
+    for (i, (P, R)) in enumerate(geo.levels)
+        coarse_idx = n_levels + 1 - i
+        dh_coarse  = dhh[coarse_idx]
+        ch_coarse  = chh !== nothing ? chh[coarse_idx] : nothing
+
+        @timeit_debug "smoother setup" begin
+            pre  = AMG.setup_smoother(presmoother, cur_A, symmetry)
+            post = AMG.setup_smoother(postsmoother, cur_A, symmetry)
+            push!(levels, Level(cur_A, P, R, pre, post))
+        end
+
+        cur_A = @timeit_debug "coarse matrix" _gmg_coarse_matrix(
+            cur_A, P, R, cs, dh_coarse, ch_coarse, u, p)
+
+        coarse_x!(w, size(cur_A, 1))
+        coarse_b!(w, size(cur_A, 1))
+        residual!(w, size(cur_A, 1))
+    end
+
+    coarse_solver = @timeit_debug "coarse solver setup" pcoarse_solver(cur_A)
+    return MultiLevel(levels, cur_A, coarse_solver, presmoother, postsmoother, w)
+end
+
+"""
     gmultigrid(A, gh, dhh, chh, config, pcoarse_solver; kwargs...)
 
 Build a geometric multigrid preconditioner / solver for `Ax = b`.
+
+This is a convenience wrapper that calls [`gmultigrid_symbolic`](@ref) followed by
+[`gmultigrid_numeric!`](@ref).  When rebuilding across Newton iterations, prefer
+caching the [`MultilevelGeometry`](@ref) from `gmultigrid_symbolic` and calling
+`gmultigrid_numeric!` directly.
 
 # Arguments
 - `A`             – assembled fine-grid matrix
@@ -170,60 +268,11 @@ function gmultigrid(
         chh::Union{ConstraintHandlerHierarchy, Nothing},
         config::GMultigridConfiguration,
         pcoarse_solver;
-        u          = nothing,
-        p          = nothing,
-        presmoother  = GaussSeidel(),
-        postsmoother = GaussSeidel(),
-        symmetry     = AMG.HermitianSymmetry(),
+        kwargs...,
     ) where T
 
-    n_levels = length(gh) - 1  # number of level transitions (1 = one coarsening step)
-    @assert n_levels >= 1
-    @assert length(dhh) == length(gh) "dhh must have length $(length(gh))"
-    chh !== nothing && @assert length(chh) == length(gh) "chh must have length $(length(gh))"
-
-    # AlgebraicMultigrid level list: levels[1] = finest, levels[end] = one above coarsest
-    levels = Level{SparseMatrixCSC{T,Int}, SparseMatrixCSC{T,Int}, Adjoint{T, SparseMatrixCSC{T,Int}}}[]
-    w      = MultiLevelWorkspace(Val{1}, T)
-    residual!(w, size(A, 1))
-
-    cur_A = A
-
-    # Iterate from finest → coarsest
-    ch_coarse = nothing
-    ch_fine = nothing
-    for k in n_levels:-1:1
-        dh_fine   = dhh[k+1]   # fine level   (gh.grids[k+1])
-        dh_coarse = dhh[k]     # coarse level (gh.grids[k])
-        # Unpack ch pair if available
-        if chh !== nothing
-            ch_fine   = chh[k+1]
-            ch_coarse = chh[k]
-        end
-        f2c  = gh.fine2coarse[k]
-        crc  = gh.child_ref_coords[k]
-
-        P = @timeit_debug "build geometric prolongator" build_geometric_prolongator(
-                dh_fine, dh_coarse, f2c, crc)
-        R = @timeit_debug "build geometric restriction" P'
-
-        @timeit_debug "smoother setup" begin
-            pre = AMG.setup_smoother(presmoother, cur_A, symmetry)
-            post = AMG.setup_smoother(postsmoother, cur_A, symmetry)
-            push!(levels, Level(cur_A, P, R, pre, post))
-        end
-
-        cs = config.coarse_strategy
-        @timeit_debug "coarse matrix" cur_A = _gmg_coarse_matrix(
-            cur_A, P, R, cs, dh_coarse, ch_coarse, u, p)
-
-        coarse_x!(w, size(cur_A, 1))
-        coarse_b!(w, size(cur_A, 1))
-        residual!(w, size(cur_A, 1))
-    end
-
-    coarse_solver = @timeit_debug "coarse solver setup" pcoarse_solver(cur_A)
-    return MultiLevel(levels, cur_A, coarse_solver, presmoother, postsmoother, w)
+    geo = @timeit_debug "gmultigrid symbolic" gmultigrid_symbolic(gh, dhh)
+    return @timeit_debug "gmultigrid numeric" gmultigrid_numeric!(geo, A, gh, dhh, chh, config, pcoarse_solver; kwargs...)
 end
 
 """

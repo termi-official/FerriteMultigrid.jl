@@ -1,6 +1,21 @@
 ## defines how we obtain A operator for the coarse grid
 abstract type AbstractCoarseningStrategy end
 
+"""
+    MultilevelGeometry{TP, TR}
+
+Stores the prolongation and restriction operators for all level transitions in a
+multigrid hierarchy.  These operators depend only on the mesh/polynomial structure
+and can therefore be built once and reused across repeated numeric phases (i.e.
+across Newton iterations).
+
+`levels[1]` corresponds to the finest → next-coarser transition,
+`levels[end]` to the second-coarsest → coarsest transition.
+"""
+struct MultilevelGeometry{TP, TR}
+    levels::Vector{Tuple{TP, TR}}
+end
+
 @doc raw"""
     Galerkin <: AbstractCoarseningStrategy
 Galerkin coarsening operator can be defined as follows:
@@ -58,13 +73,61 @@ pmultigrid_config(;coarse_strategy = Galerkin()) = PMultigridConfiguration(coars
 
 
 """
-    pmultigrid(A, dhh, chh, pgrid_config, pcoarse_solver, [Val{bs}]; kwargs...)
+    pmultigrid_symbolic(dhh, pgrid_config)
 
-Build a polynomial multigrid preconditioner from a pre-built `DofHandlerHierarchy` and
-`ConstraintHandlerHierarchy`.  Index 1 of the hierarchies must be the coarsest level
-and index `end` the finest.
+Build the [`MultilevelGeometry`](@ref) for a polynomial multigrid hierarchy.
+Assembles all prolongation and restriction operators (which depend only on the
+mesh/interpolation hierarchy) and caches them for reuse across Newton iterations.
+
+Index 1 of `dhh` must be the coarsest level and index `end` the finest.
 """
-function pmultigrid(
+function pmultigrid_symbolic(
+        dhh::DofHandlerHierarchy,
+        pgrid_config::PMultigridConfiguration,
+    )
+    n_levels = length(dhh) - 1
+    @assert n_levels >= 1 "DofHandlerHierarchy must have at least 2 levels"
+
+    cs     = pgrid_config.coarse_strategy
+    is_sym = cs.is_sym
+
+    # Build the first pair to establish the concrete P/R types.
+    P0 = @timeit_debug "build prolongator" build_prolongator(dhh[n_levels+1], dhh[n_levels])
+    R0 = @timeit_debug "build restriction" build_restriction(dhh[n_levels], dhh[n_levels+1], P0, is_sym)
+
+    pairs = Vector{Tuple{typeof(P0), typeof(R0)}}()
+    push!(pairs, (P0, R0))
+
+    for k in n_levels-1:-1:1
+        P = @timeit_debug "build prolongator" build_prolongator(dhh[k+1], dhh[k])
+        R = @timeit_debug "build restriction" build_restriction(dhh[k], dhh[k+1], P, is_sym)
+        push!(pairs, (P, R))
+    end
+
+    return MultilevelGeometry(pairs)
+end
+
+function _pmg_coarse_matrix(cs::Galerkin, R, A, P, coarse_dh, coarse_ch, u, p)
+    return @timeit_debug "RAP" rap_threaded(R, A, P)
+end
+
+function _pmg_coarse_matrix(cs::Rediscretization, R, A, P, coarse_dh, coarse_ch, u, p)
+    op = @timeit_debug "setup coarse operator" setup_operator(cs.strategy, cs.integrator, coarse_dh)
+    @timeit_debug "assemble coarse operator" update_operator!(op, p)
+    coarse_ch !== nothing && apply!(op.A, coarse_ch)
+    return op.A
+end
+
+"""
+    pmultigrid_numeric!(geo, A, dhh, chh, pgrid_config, pcoarse_solver, [Val{bs}]; kwargs...)
+
+Build a polynomial multigrid `MultiLevel` using a pre-built [`MultilevelGeometry`](@ref).
+This performs only the numeric phase (smoother setup, Galerkin projection or re-assembly)
+and can be called repeatedly with the same `geo` to rebuild the hierarchy cheaply when
+only the matrix `A` changes (e.g. across Newton iterations).
+"""
+function pmultigrid_numeric!(
+    geo::MultilevelGeometry,
     A::TA,
     dhh::DofHandlerHierarchy,
     chh::Union{ConstraintHandlerHierarchy, Nothing},
@@ -80,32 +143,31 @@ function pmultigrid(
     ) where {T,V,bs,TA<:SparseMatrixCSC{T,V}}
 
     n_levels = length(dhh) - 1
-    @assert n_levels >= 1 "DofHandlerHierarchy must have at least 2 levels"
-    chh !== nothing && @assert length(dhh) == length(chh) "Dof and constraint handler hierarchies must match"
+    @assert n_levels >= 1
+    @assert length(geo.levels) == n_levels "Geometry has $(length(geo.levels)) levels but dhh implies $n_levels"
+    chh !== nothing && @assert length(dhh) == length(chh)
 
-    levels = Vector{Level{TA,TA,Adjoint{T,TA}}}()
+    TP, TR = fieldtypes(eltype(geo.levels))
+    levels = Vector{Level{TA, TP, TR}}()
     w = MultiLevelWorkspace(Val{bs}, eltype(A))
     residual!(w, size(A, 1))
 
     cs    = pgrid_config.coarse_strategy
     cur_A = A
 
-    fine_ch = nothing
-    coarse_ch = nothing
-    # Iterate from finest (index end) down to coarsest (index 1)
-    for k in n_levels:-1:1
-        # Unpack dh pair
-        fine_dh   = dhh[k+1]
-        coarse_dh = dhh[k]
+    # geo.levels[1] = finest transition (dhh[end] → dhh[end-1]), ...
+    for (i, (P, R)) in enumerate(geo.levels)
+        coarse_idx = n_levels + 1 - i   # index of coarse level in dhh
+        coarse_dh  = dhh[coarse_idx]
+        coarse_ch  = chh !== nothing ? chh[coarse_idx] : nothing
 
-        # Unpack ch pair if available
-        if chh !== nothing
-            fine_ch   = chh[k+1]
-            coarse_ch = chh[k]
+        @timeit_debug "smoother setup" begin
+            pre  = AMG.setup_smoother(presmoother, cur_A, symmetry)
+            post = AMG.setup_smoother(postsmoother, cur_A, symmetry)
+            push!(levels, Level(cur_A, P, R, pre, post))
         end
 
-        @timeit_debug "extend_hierarchy!" cur_A = extend_hierarchy!(
-            levels, fine_dh, fine_ch, coarse_dh, coarse_ch, cur_A, cs, symmetry, presmoother, postsmoother, u, p)
+        cur_A = _pmg_coarse_matrix(cs, R, cur_A, P, coarse_dh, coarse_ch, u, p)
 
         coarse_x!(w, size(cur_A, 1))
         coarse_b!(w, size(cur_A, 1))
@@ -116,29 +178,28 @@ function pmultigrid(
     return MultiLevel(levels, cur_A, coarse_solver, presmoother, postsmoother, w)
 end
 
-function extend_hierarchy!(levels, fine_dh, fine_ch, coarse_dh, coarse_ch, A, cs::Galerkin, symmetry, presmoother, postsmoother, u, p)
-    P = @timeit_debug "build prolongator" build_prolongator(fine_dh, coarse_dh)
-    R = @timeit_debug "build restriction" build_restriction(coarse_dh, fine_dh, P, cs.is_sym)
-    @timeit_debug "smoother setup" begin
-        pre = AMG.setup_smoother(presmoother, A, symmetry)
-        post = AMG.setup_smoother(postsmoother, A, symmetry)
-        push!(levels, Level(A, P, R, pre, post))
-    end
-    RAP = @timeit_debug "RAP" rap_threaded(R, A, P) # fused Galerkin projection
-    return RAP
-end
+"""
+    pmultigrid(A, dhh, chh, pgrid_config, pcoarse_solver, [Val{bs}]; kwargs...)
 
-function extend_hierarchy!(levels, fine_dh, fine_ch, coarse_dh, coarse_ch, A, cs::Rediscretization, symmetry, presmoother, postsmoother, u, p)
-    P = @timeit_debug "build prolongator" build_prolongator(fine_dh, coarse_dh)
-    R = @timeit_debug "build restriction" build_restriction(coarse_dh, fine_dh, P, cs.is_sym)
-    @timeit_debug "smoother setup" begin
-        pre = AMG.setup_smoother(presmoother, A, symmetry)
-        post = AMG.setup_smoother(postsmoother, A, symmetry)
-        push!(levels, Level(A, P, R, pre, post))
-    end
+Build a polynomial multigrid preconditioner from a pre-built `DofHandlerHierarchy` and
+`ConstraintHandlerHierarchy`.  Index 1 of the hierarchies must be the coarsest level
+and index `end` the finest.
 
-    op = @timeit_debug "setup coarse operator" setup_operator(cs.strategy, cs.integrator, coarse_dh)
-    @timeit_debug "assemble coarse operator" update_operator!(op, p) # TODO might call update_linearization! instead.
-    coarse_ch !== nothing && apply!(op.A, coarse_ch)
-    return op.A
+This is a convenience wrapper that calls [`pmultigrid_symbolic`](@ref) followed by
+[`pmultigrid_numeric!`](@ref).  When rebuilding the hierarchy across Newton iterations,
+prefer caching the result of `pmultigrid_symbolic` and calling `pmultigrid_numeric!`
+directly to avoid redundant prolongator/restrictor assembly.
+"""
+function pmultigrid(
+    A::TA,
+    dhh::DofHandlerHierarchy,
+    chh::Union{ConstraintHandlerHierarchy, Nothing},
+    pgrid_config::PMultigridConfiguration,
+    pcoarse_solver,
+    ::Type{Val{bs}} = Val{1};
+    kwargs...,
+    ) where {T,V,bs,TA<:SparseMatrixCSC{T,V}}
+
+    geo = @timeit_debug "pmultigrid symbolic" pmultigrid_symbolic(dhh, pgrid_config)
+    return @timeit_debug "pmultigrid numeric" pmultigrid_numeric!(geo, A, dhh, chh, pgrid_config, pcoarse_solver, Val{bs}; kwargs...)
 end
