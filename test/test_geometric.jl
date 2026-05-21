@@ -100,6 +100,112 @@ end
     end
 end
 
+@testset "uniform_refinement – Wedge (3D)" begin
+    coarse = generate_grid(Wedge, (2, 2, 2))
+    fine, f2c, crc = uniform_refinement(coarse)
+
+    @test getncells(fine) == 8 * getncells(coarse)
+    @test length(f2c)    == getncells(fine)
+    @test all(1 .<= f2c .<= getncells(coarse))
+
+    # Each Wedge has 6 nodes; all ref-coords inside RefPrism
+    for coords in crc
+        @test length(coords) == 6
+        for ξ in coords
+            @test ξ[1] >= -1e-12
+            @test ξ[2] >= -1e-12
+            @test ξ[3] >= -1e-12
+            @test ξ[1] + ξ[2] <= 1.0 + 1e-12
+            @test ξ[3] <= 1.0 + 1e-12
+        end
+    end
+
+    # Boundary sets propagated; quad side-faces each split into 4 fine faces
+    for name in ("left", "right", "bottom", "top", "front", "back")
+        @test haskey(Ferrite.getfacetsets(fine), name)
+        @test !isempty(getfacetset(fine, name))
+    end
+end
+
+@testset "uniform_refinement – mixed Tet+Wedge (3D)" begin
+    # Build a small mixed mesh manually: a 1×1×1 box split into one Tet and one Wedge
+    # Wedge nodes: v1..v6; Tet reuses 4 of those nodes.
+    nodes = [
+        Node(Vec(0.0, 0.0, 0.0)),  # 1
+        Node(Vec(1.0, 0.0, 0.0)),  # 2
+        Node(Vec(0.0, 1.0, 0.0)),  # 3
+        Node(Vec(0.0, 0.0, 1.0)),  # 4
+        Node(Vec(1.0, 0.0, 1.0)),  # 5
+        Node(Vec(0.0, 1.0, 1.0)),  # 6
+        Node(Vec(1.0, 1.0, 0.0)),  # 7
+    ]
+    w = Wedge((1, 2, 3, 4, 5, 6))
+    t = Tetrahedron((2, 7, 3, 5))
+    cells = Union{Wedge, Tetrahedron}[w, t]
+    coarse = Grid(cells, nodes)
+
+    fine, f2c, crc = uniform_refinement(coarse)
+
+    # Wedge → 8, Tet → 8 children
+    @test getncells(fine) == 16
+    @test length(f2c) == 16
+    @test all(1 .<= f2c .<= 2)
+
+    # Wedge children have 6 nodes, Tet children have 4 nodes
+    fine_cells = getcells(fine)
+    for i in 1:8
+        @test fine_cells[i] isa Wedge
+        @test length(crc[i]) == 6
+    end
+    for i in 9:16
+        @test fine_cells[i] isa Tetrahedron
+        @test length(crc[i]) == 4
+    end
+end
+
+# Helper: returns the number of fine cells with det(J) ≤ 0
+function count_negative_jacobians(grid)
+    count = 0
+    for cidx in 1:getncells(grid)
+        cell = getcells(grid, cidx)
+        ip   = geometric_interpolation(cell)
+        qr   = QuadratureRule{Ferrite.getrefshape(ip)}(1)
+        cv   = CellValues(qr, ip, ip)
+        Ferrite.reinit!(cv, getcoordinates(grid, cidx))
+        for q in 1:getnquadpoints(cv)
+            if getdetJdV(cv, q) <= 0
+                count += 1
+                break
+            end
+        end
+    end
+    return count
+end
+
+@testset "uniform_refinement – positive Jacobians" begin
+    for (CT, dims) in [(Line,(4,)), (Triangle,(3,3)), (Quadrilateral,(3,3)),
+                       (Tetrahedron,(2,2,2)), (Hexahedron,(2,2,2)), (Wedge,(2,2,2))]
+        coarse = generate_grid(CT, dims)
+        fine, _, _ = uniform_refinement(coarse)
+        @test count_negative_jacobians(fine) == 0
+    end
+
+    # Mixed Tet+Wedge mesh
+    nodes = [
+        Node(Vec(0.0, 0.0, 0.0)),
+        Node(Vec(1.0, 0.0, 0.0)),
+        Node(Vec(0.0, 1.0, 0.0)),
+        Node(Vec(0.0, 0.0, 1.0)),
+        Node(Vec(1.0, 0.0, 1.0)),
+        Node(Vec(0.0, 1.0, 1.0)),
+        Node(Vec(1.0, 1.0, 0.0)),
+    ]
+    cells = Union{Wedge, Tetrahedron}[Wedge((1,2,3,4,5,6)), Tetrahedron((2,7,3,5))]
+    fine, _, _ = uniform_refinement(Grid(cells, nodes))
+    @test count_negative_jacobians(fine) == 0
+end
+
+
 @testset "GridHierarchy construction" begin
     coarse = generate_grid(Line, (4,))
     gh = GridHierarchy(coarse, 2)
@@ -365,6 +471,32 @@ end
     # Both levels must have 2 SubDofHandlers
     @test length(dhh[1].subdofhandlers) == 2
     @test length(dhh[2].subdofhandlers) == 2
+
+    K, f = assemble_poisson(dhh[end], chh[end], 2)
+    config = gmultigrid_config()
+
+    x, res = solve(K, f, gh, dhh, chh, config;
+                   pcoarse_solver = SmoothedAggregationCoarseSolver(),
+                   maxiter = 100, reltol = 1e-10, log = true)
+    @test K * x ≈ f atol=1e-6
+end
+
+@testset "gmultigrid – 3D Wedge Poisson, Galerkin, 1 level" begin
+    coarse_grid = generate_grid(Wedge, (2, 2, 2))
+    gh = GridHierarchy(coarse_grid, 1)
+
+    dhh = DofHandlerHierarchy(gh)
+    add!(dhh, :u, Lagrange{RefPrism, 1}())
+    close!(dhh)
+
+    chh = ConstraintHandlerHierarchy(dhh)
+    add!(chh, dh -> begin
+        ∂Ω = union(getfacetset(dh.grid, "left"),  getfacetset(dh.grid, "right"),
+                   getfacetset(dh.grid, "front"), getfacetset(dh.grid, "back"),
+                   getfacetset(dh.grid, "bottom"), getfacetset(dh.grid, "top"))
+        Dirichlet(:u, ∂Ω, (x, t) -> 0.0)
+    end)
+    close!(chh)
 
     K, f = assemble_poisson(dhh[end], chh[end], 2)
     config = gmultigrid_config()
