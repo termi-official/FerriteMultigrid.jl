@@ -87,6 +87,110 @@ gmultigrid_config(; coarse_strategy = Galerkin()) = GMultigridConfiguration(coar
 
 
 #######################################################################
+## Nodal prolongator for nested grids                               ##
+#######################################################################
+
+@doc raw"""
+    NestedNodalProlongatorIntegrator
+
+Integrator for assembling a prolongation operator between a fine and a coarse grid
+that are **hierarchically nested** (geometric multigrid).
+
+Unlike [`NestedMassProlongatorIntegrator`](@ref), this variant avoids the local mass
+matrix and Cholesky solve entirely.  The coarse basis functions are evaluated directly
+at the fine element's Lagrange node positions, which are first mapped to the coarse
+reference frame using the same affine map as `NestedMassProlongatorIntegrator`:
+
+```math
+\xi_\text{coarse} = \sum_k N_k^{\text{geo,fine}}(\hat\xi_i)\;\hat{x}_k
+```
+
+where ``\hat\xi_i`` is the ``i``-th Lagrange node position in fine reference coordinates
+and ``\hat{x}_k`` are the fine-cell corner positions in the parent (coarse) reference
+element (`child_ref_coords`).  The element prolongation entry is then
+
+```math
+P_{ij} = \varphi_j^{\text{coarse}}(\xi_\text{coarse})
+```
+
+This is always well-posed regardless of how many quadrature points are available, and is
+exact for Lagrange elements of any order on any reference shape.
+"""
+struct NestedNodalProlongatorIntegrator <: AbstractTransferIntegrator
+    field_name::Symbol
+end
+
+"""
+The element cache associated with [`NestedNodalProlongatorIntegrator`](@ref).
+"""
+struct NestedNodalProlongatorElementCache{IP_coarse, IP_geo, T} <: AbstractTransferElementCache
+    ip_coarse::IP_coarse   # field interpolation of the coarse element
+    ip_geo_fine::IP_geo    # scalar geometric interpolation of fine element (for ref-space map)
+    positions::Vector{T}   # fine Lagrange node positions in fine reference coordinates
+    vdim::Int
+end
+
+function FerriteOperators.duplicate_for_device(::Any, cache::NestedNodalProlongatorElementCache)
+    return cache  # all fields are immutable; safe to share across threads
+end
+
+function FerriteOperators.setup_transfer_element_cache(
+        integrator::NestedNodalProlongatorIntegrator,
+        sdh_fine::SubDofHandler,
+        sdh_coarse::SubDofHandler,
+    )
+    field_name  = integrator.field_name
+    ip_fine     = Ferrite.getfieldinterpolation(sdh_fine,   field_name)
+    ip_coarse   = Ferrite.getfieldinterpolation(sdh_coarse, field_name)
+    ip_geo_fine = Ferrite.geometric_interpolation(typeof(FerriteOperators.get_first_cell(sdh_fine)))
+    positions   = Ferrite.reference_coordinates(ip_fine)
+    return NestedNodalProlongatorElementCache(ip_coarse, ip_geo_fine, positions, Ferrite.n_components(ip_fine))
+end
+
+function FerriteOperators.assemble_transfer_element!(
+        Pₑ::AbstractMatrix,
+        tc::NestedGridCellCache,
+        cache::NestedNodalProlongatorElementCache,
+        p,
+    )
+    (; ip_coarse, ip_geo_fine, positions, vdim) = cache
+    child_nodes = get_child_ref_coords(tc)
+    n_fine   = size(Pₑ, 1)
+    n_coarse = size(Pₑ, 2)
+    if vdim > 1
+        @inbounds for i in 1:n_fine ÷ vdim
+            ξ_fine = positions[i]
+            # Map fine Lagrange node i to coarse reference coordinates via the affine map
+            # defined by the fine element's geometric interpolation and child_ref_coords.
+            ξ_coarse = sum(
+                Ferrite.reference_shape_value(ip_geo_fine, ξ_fine, k) * child_nodes[k]
+                for k in eachindex(child_nodes)
+            )
+            for j in 1:n_coarse
+                val = Ferrite.reference_shape_value(ip_coarse, ξ_coarse, j)
+                for k in 1:vdim
+                    Pₑ[vdim*(i-1)+k, j] += val[k]
+                end
+            end
+        end
+    else
+        @inbounds for i in 1:n_fine
+            ξ_fine = positions[i]
+            # Map fine Lagrange node i to coarse reference coordinates via the affine map
+            # defined by the fine element's geometric interpolation and child_ref_coords.
+            ξ_coarse = sum(
+                Ferrite.reference_shape_value(ip_geo_fine, ξ_fine, k) * child_nodes[k]
+                for k in eachindex(child_nodes)
+            )
+            for j in 1:n_coarse
+                Pₑ[i, j] = Ferrite.reference_shape_value(ip_coarse, ξ_coarse, j)
+            end
+        end
+    end
+end
+
+
+#######################################################################
 ## Prolongator assembly for nested grids                             ##
 #######################################################################
 
@@ -94,7 +198,13 @@ gmultigrid_config(; coarse_strategy = Galerkin()) = GMultigridConfiguration(coar
     build_geometric_prolongator(dh_fine, dh_coarse, fine2coarse, child_ref_coords)
 
 Assemble the prolongation matrix P for a geometric level transition using
-`NestedMassProlongatorIntegrator` via FerriteOperators.
+`NestedNodalProlongatorIntegrator` via FerriteOperators.
+
+The prolongation is computed by direct nodal interpolation: for each fine Lagrange
+node, the coarse basis functions are evaluated at the corresponding coarse reference
+coordinate (obtained by mapping through `child_ref_coords`).  This avoids the local
+mass-matrix solve of `NestedMassProlongatorIntegrator` and is well-posed for all
+supported element types including Wedge.
 """
 function build_geometric_prolongator(
         dh_fine::DofHandler,
@@ -105,8 +215,7 @@ function build_geometric_prolongator(
     field_name = first(Ferrite.getfieldnames(dh_fine))
     # FIXME multi-field support
     @assert length(dh_fine.field_names) == 1 "Multiple fields not yet supported"
-    qr_order   = 2 * getorder(dh_fine.subdofhandlers[1].field_interpolations[1])
-    integrator = NestedMassProlongatorIntegrator(QuadratureRuleCollection(qr_order), field_name)
+    integrator = NestedNodalProlongatorIntegrator(field_name)
     strategy   = SequentialAssemblyStrategy(SequentialCPUDevice())
 
     op = setup_nested_transfer_operator(strategy, integrator,

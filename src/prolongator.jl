@@ -18,7 +18,7 @@ function FerriteOperators.assemble_transfer_element!(Pₑ::AbstractMatrix, cell,
     (; cv, vdim) = element_cache
 
     if vdim > 1
-        for i in 1:getnquadpoints(cv)
+        @inbounds for i in 1:getnquadpoints(cv)
             for j in 1:getnbasefunctions(cv)
                 val = shape_value(cv, i, j)
                 for k in 1:vdim
@@ -27,7 +27,7 @@ function FerriteOperators.assemble_transfer_element!(Pₑ::AbstractMatrix, cell,
             end
         end
     else
-        for i in 1:getnquadpoints(cv)
+        @inbounds for i in 1:getnquadpoints(cv)
             for j in 1:getnbasefunctions(cv)
                 Pₑ[i, j] += shape_value(cv, i, j)
             end
