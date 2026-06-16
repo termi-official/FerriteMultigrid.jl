@@ -64,7 +64,6 @@ function build_prolongator(
     # FIXME multi-field support
     @assert length(fine_dh.field_names) == 1 "Multiple fields not yet supported"
     qr_order    = 2 * getorder(fine_dh.subdofhandlers[1].field_interpolations[1])
-    # integrator  = MassProlongatorIntegrator(QuadratureRuleCollection(qr_order), field_name)
     integrator  = PolynomialProlongationIntegrator(field_name)
     strategy    = SequentialAssemblyStrategy(SequentialCPUDevice())
 

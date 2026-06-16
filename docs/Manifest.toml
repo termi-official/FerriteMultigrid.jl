@@ -1,7 +1,7 @@
 # This file is machine-generated - editing it directly is not advised
 
 julia_version = "1.12.6"
-manifest_format = "2.1"
+manifest_format = "2.0"
 project_hash = "4c7a27b661b169b9b95b09ebe48ac14b357b7cae"
 
 [[deps.ADTypes]]
@@ -367,9 +367,9 @@ version = "0.1.2"
 
 [[deps.FerriteOperators]]
 deps = ["Adapt", "Atomix", "ConcreteStructs", "Ferrite", "LinearAlgebra", "Reexport", "SparseArrays", "StaticArrays", "TimerOutputs", "Unrolled"]
-git-tree-sha1 = "550145c062bc02d655dcf3e910ae4621a6681d37"
+git-tree-sha1 = "6043dfe86c0ee676aa5b7f33c60b450b7e3a1ebd"
 uuid = "27d9367a-5072-424e-9c5f-fe582399bac3"
-version = "0.3.1"
+version = "0.3.3"
 
     [deps.FerriteOperators.extensions]
     FerriteOperatorsPolyesterExt = "Polyester"
@@ -1637,11 +1637,3 @@ deps = ["Artifacts", "JLLWrappers", "Libdl"]
 git-tree-sha1 = "64ae051c6f03044eb7d98027d1b552b4e21e650c"
 uuid = "cddc5d3d-934d-5d3a-9747-62fc12ea3f48"
 version = "1.7.3+0"
-
-[registries.General]
-url = "https://github.com/JuliaRegistries/General.git"
-uuid = "23338594-aafe-5451-b93e-139f81909106"
-
-[registries.termis-backyard]
-url = " git@github.com:termi-official/termis-backyard.git"
-uuid = "316e62c2-ef56-46d6-8ff6-b27ca319ed4d"
