@@ -43,6 +43,7 @@ import FerriteOperators:
 import Ferrite: get_grid
 
 include("prolongator.jl")
+include("rap.jl")
 include("handler_hierarchy.jl")
 include("pmultigrid.jl")
 include("multilevel.jl")
@@ -63,11 +64,15 @@ export
     DofHandlerHierarchy,
     ConstraintHandlerHierarchy,
     SubDofHandlerHierarchy,
+    # Multigrid geometry (symbolic phase)
+    MultilevelGeometry,
     # Polynomial multigrid
     PMultigridPreconBuilder,
     PMultigridConfiguration,
     pmultigrid_config,
     pmultigrid,
+    pmultigrid_symbolic,
+    pmultigrid_numeric!,
     # Geometric multigrid
     uniform_refinement,
     GridHierarchy,
@@ -75,6 +80,11 @@ export
     gmultigrid_config,
     GMultigridCoarseSolver,
     GMultigridCoarseSolverBuilder,
-    gmultigrid
+    gmultigrid,
+    gmultigrid_symbolic,
+    gmultigrid_numeric!,
+    # Cached direct coarse solver
+    CachedLinearSolveCoarseSolverBuilder,
+    CachedLinearCoarseSolver
 
 end

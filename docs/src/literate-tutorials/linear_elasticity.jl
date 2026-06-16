@@ -265,13 +265,13 @@ print_timer(title = "Analysis with $(getncells(dhh[end].grid)) elements", linech
 using Test                                                                                       #src
 @testset "Linear Elasticity Example" begin                                                       #src
     println("Final residual with Galerkin coarsening: ", res_gal[end])                           #src
-    @test A * x_gal ≈ b atol=1e-4                                                                #src
+    @test A * x_gal ≈ b                                                                          #src
     println("Final residual with Galerkin CG: ", res_gcg.data[:resnorm][end])                    #src
-    @test A * x_gcg ≈ b atol=1e-4                                                                #src
+    @test A * x_gcg ≈ b                                                                          #src
     println("Final residual with Rediscretization coarsening: ", res_red[end])                   #src
-    @test A * x_red ≈ b atol=1e-4                                                                #src
+    @test A * x_red ≈ b                                                                          #src
     println("Final residual with Rediscretization coarsening: ", res_rcg.data[:resnorm][end])    #src
-    @test A * x_rcg ≈ b atol=1e-4                                                                #src
+    @test A * x_rcg ≈ b                                                                          #src
 end                                                                                              #src
 
 

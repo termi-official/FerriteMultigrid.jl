@@ -87,6 +87,110 @@ gmultigrid_config(; coarse_strategy = Galerkin()) = GMultigridConfiguration(coar
 
 
 #######################################################################
+## Nodal prolongator for nested grids                               ##
+#######################################################################
+
+@doc raw"""
+    NestedNodalProlongatorIntegrator
+
+Integrator for assembling a prolongation operator between a fine and a coarse grid
+that are **hierarchically nested** (geometric multigrid).
+
+Unlike [`NestedMassProlongatorIntegrator`](@ref), this variant avoids the local mass
+matrix and Cholesky solve entirely.  The coarse basis functions are evaluated directly
+at the fine element's Lagrange node positions, which are first mapped to the coarse
+reference frame using the same affine map as `NestedMassProlongatorIntegrator`:
+
+```math
+\xi_\text{coarse} = \sum_k N_k^{\text{geo,fine}}(\hat\xi_i)\;\hat{x}_k
+```
+
+where ``\hat\xi_i`` is the ``i``-th Lagrange node position in fine reference coordinates
+and ``\hat{x}_k`` are the fine-cell corner positions in the parent (coarse) reference
+element (`child_ref_coords`).  The element prolongation entry is then
+
+```math
+P_{ij} = \varphi_j^{\text{coarse}}(\xi_\text{coarse})
+```
+
+This is always well-posed regardless of how many quadrature points are available, and is
+exact for Lagrange elements of any order on any reference shape.
+"""
+struct NestedNodalProlongatorIntegrator <: AbstractTransferIntegrator
+    field_name::Symbol
+end
+
+"""
+The element cache associated with [`NestedNodalProlongatorIntegrator`](@ref).
+"""
+struct NestedNodalProlongatorElementCache{IP_coarse, IP_geo, T} <: AbstractTransferElementCache
+    ip_coarse::IP_coarse   # field interpolation of the coarse element
+    ip_geo_fine::IP_geo    # scalar geometric interpolation of fine element (for ref-space map)
+    positions::Vector{T}   # fine Lagrange node positions in fine reference coordinates
+    vdim::Int
+end
+
+function FerriteOperators.duplicate_for_device(::Any, cache::NestedNodalProlongatorElementCache)
+    return cache  # all fields are immutable; safe to share across threads
+end
+
+function FerriteOperators.setup_transfer_element_cache(
+        integrator::NestedNodalProlongatorIntegrator,
+        sdh_fine::SubDofHandler,
+        sdh_coarse::SubDofHandler,
+    )
+    field_name  = integrator.field_name
+    ip_fine     = Ferrite.getfieldinterpolation(sdh_fine,   field_name)
+    ip_coarse   = Ferrite.getfieldinterpolation(sdh_coarse, field_name)
+    ip_geo_fine = Ferrite.geometric_interpolation(typeof(FerriteOperators.get_first_cell(sdh_fine)))
+    positions   = Ferrite.reference_coordinates(ip_fine)
+    return NestedNodalProlongatorElementCache(ip_coarse, ip_geo_fine, positions, Ferrite.n_components(ip_fine))
+end
+
+function FerriteOperators.assemble_transfer_element!(
+        Pₑ::AbstractMatrix,
+        tc::NestedGridCellCache,
+        cache::NestedNodalProlongatorElementCache,
+        p,
+    )
+    (; ip_coarse, ip_geo_fine, positions, vdim) = cache
+    child_nodes = get_child_ref_coords(tc)
+    n_fine   = size(Pₑ, 1)
+    n_coarse = size(Pₑ, 2)
+    if vdim > 1
+        @inbounds for i in 1:n_fine ÷ vdim
+            ξ_fine = positions[i]
+            # Map fine Lagrange node i to coarse reference coordinates via the affine map
+            # defined by the fine element's geometric interpolation and child_ref_coords.
+            ξ_coarse = sum(
+                Ferrite.reference_shape_value(ip_geo_fine, ξ_fine, k) * child_nodes[k]
+                for k in eachindex(child_nodes)
+            )
+            for j in 1:n_coarse
+                val = Ferrite.reference_shape_value(ip_coarse, ξ_coarse, j)
+                for k in 1:vdim
+                    Pₑ[vdim*(i-1)+k, j] += val[k]
+                end
+            end
+        end
+    else
+        @inbounds for i in 1:n_fine
+            ξ_fine = positions[i]
+            # Map fine Lagrange node i to coarse reference coordinates via the affine map
+            # defined by the fine element's geometric interpolation and child_ref_coords.
+            ξ_coarse = sum(
+                Ferrite.reference_shape_value(ip_geo_fine, ξ_fine, k) * child_nodes[k]
+                for k in eachindex(child_nodes)
+            )
+            for j in 1:n_coarse
+                Pₑ[i, j] = Ferrite.reference_shape_value(ip_coarse, ξ_coarse, j)
+            end
+        end
+    end
+end
+
+
+#######################################################################
 ## Prolongator assembly for nested grids                             ##
 #######################################################################
 
@@ -94,7 +198,13 @@ gmultigrid_config(; coarse_strategy = Galerkin()) = GMultigridConfiguration(coar
     build_geometric_prolongator(dh_fine, dh_coarse, fine2coarse, child_ref_coords)
 
 Assemble the prolongation matrix P for a geometric level transition using
-`NestedMassProlongatorIntegrator` via FerriteOperators.
+`NestedNodalProlongatorIntegrator` via FerriteOperators.
+
+The prolongation is computed by direct nodal interpolation: for each fine Lagrange
+node, the coarse basis functions are evaluated at the corresponding coarse reference
+coordinate (obtained by mapping through `child_ref_coords`).  This avoids the local
+mass-matrix solve of `NestedMassProlongatorIntegrator` and is well-posed for all
+supported element types including Wedge.
 """
 function build_geometric_prolongator(
         dh_fine::DofHandler,
@@ -105,8 +215,7 @@ function build_geometric_prolongator(
     field_name = first(Ferrite.getfieldnames(dh_fine))
     # FIXME multi-field support
     @assert length(dh_fine.field_names) == 1 "Multiple fields not yet supported"
-    qr_order   = 2 * getorder(dh_fine.subdofhandlers[1].field_interpolations[1])
-    integrator = NestedMassProlongatorIntegrator(QuadratureRuleCollection(qr_order), field_name)
+    integrator = NestedNodalProlongatorIntegrator(field_name)
     strategy   = SequentialAssemblyStrategy(SequentialCPUDevice())
 
     op = setup_nested_transfer_operator(strategy, integrator,
@@ -133,9 +242,10 @@ end
 ## gmultigrid                                                        ##
 #######################################################################
 
-_gmg_coarse_matrix(A, P, R, ::Galerkin, dh_coarse, ch_coarse, u, p) = R * A * P
+_gmg_coarse_matrix(A, P, R, ::Galerkin, dh_coarse, ch_coarse, u, p, rap_ws::RAPWorkspace) =
+    rap_numeric!(rap_ws, A)
 
-function _gmg_coarse_matrix(A, P, R, cs::Rediscretization, dh_coarse, ch_coarse, u, p)
+function _gmg_coarse_matrix(A, P, R, cs::Rediscretization, dh_coarse, ch_coarse, u, p, ::Nothing)
     op = setup_operator(cs.strategy, cs.integrator, dh_coarse)
     update_operator!(op, p)
     ch_coarse !== nothing && apply!(op.A, ch_coarse)
@@ -143,9 +253,154 @@ function _gmg_coarse_matrix(A, P, R, cs::Rediscretization, dh_coarse, ch_coarse,
 end
 
 """
+    gmultigrid_symbolic(gh, dhh, config, A)
+
+Build the [`MultilevelGeometry`](@ref) for a geometric multigrid hierarchy with
+the Galerkin coarsening strategy.
+
+Assembles all prolongation/restriction operators and, using the fine-grid matrix
+`A`, pre-allocates one [`RAPWorkspace`](@ref) per level (chaining coarse matrices
+through the hierarchy).
+
+Index 1 of `dhh` (and `gh`) must be the coarsest level and index `end` the finest.
+"""
+function gmultigrid_symbolic(
+        gh::GridHierarchy,
+        dhh::DofHandlerHierarchy,
+        config::GMultigridConfiguration{<:Galerkin},
+        A::SparseMatrixCSC,
+    )
+    n_levels = length(gh) - 1
+    @assert n_levels >= 1
+    @assert length(dhh) == length(gh)
+
+    P0 = @timeit_debug "build geometric prolongator" build_geometric_prolongator(
+            dhh[n_levels+1], dhh[n_levels], gh.fine2coarse[n_levels], gh.child_ref_coords[n_levels])
+    R0 = @timeit_debug "build geometric restriction" P0'
+
+    pairs = Vector{Tuple{typeof(P0), typeof(R0)}}()
+    push!(pairs, (P0, R0))
+
+    for k in n_levels-1:-1:1
+        P = @timeit_debug "build geometric prolongator" build_geometric_prolongator(
+                dhh[k+1], dhh[k], gh.fine2coarse[k], gh.child_ref_coords[k])
+        R = @timeit_debug "build geometric restriction" P'
+        push!(pairs, (P, R))
+    end
+
+    workspaces = Vector{RAPWorkspace}(undef, n_levels)
+    cur_A = A
+    for (i, (P, R)) in enumerate(pairs)
+        ws = @timeit_debug "RAP symbolic" rap_symbolic(R, cur_A, P)
+        workspaces[i] = ws
+        cur_A = ws.C
+    end
+
+    return MultilevelGeometry(pairs, workspaces)
+end
+
+"""
+    gmultigrid_symbolic(gh, dhh, config)
+
+Build the [`MultilevelGeometry`](@ref) for a geometric multigrid hierarchy with
+the Rediscretization coarsening strategy (no RAP workspaces).
+"""
+function gmultigrid_symbolic(
+        gh::GridHierarchy,
+        dhh::DofHandlerHierarchy,
+        config::GMultigridConfiguration{<:Rediscretization},
+    )
+    n_levels = length(gh) - 1
+    @assert n_levels >= 1
+    @assert length(dhh) == length(gh)
+
+    P0 = @timeit_debug "build geometric prolongator" build_geometric_prolongator(
+            dhh[n_levels+1], dhh[n_levels], gh.fine2coarse[n_levels], gh.child_ref_coords[n_levels])
+    R0 = @timeit_debug "build geometric restriction" P0'
+
+    pairs = Vector{Tuple{typeof(P0), typeof(R0)}}()
+    push!(pairs, (P0, R0))
+
+    for k in n_levels-1:-1:1
+        P = @timeit_debug "build geometric prolongator" build_geometric_prolongator(
+                dhh[k+1], dhh[k], gh.fine2coarse[k], gh.child_ref_coords[k])
+        R = @timeit_debug "build geometric restriction" P'
+        push!(pairs, (P, R))
+    end
+
+    return MultilevelGeometry(pairs, nothing)
+end
+
+"""
+    gmultigrid_numeric!(geo, A, gh, dhh, chh, config, pcoarse_solver; kwargs...)
+
+Build a geometric multigrid `MultiLevel` using a pre-built [`MultilevelGeometry`](@ref).
+Performs only the numeric phase (smoother setup + coarse-matrix computation).
+"""
+function gmultigrid_numeric!(
+        geo::MultilevelGeometry,
+        A::SparseMatrixCSC{T},
+        gh::GridHierarchy,
+        dhh::DofHandlerHierarchy,
+        chh::Union{ConstraintHandlerHierarchy, Nothing},
+        config::GMultigridConfiguration,
+        pcoarse_solver;
+        u          = nothing,
+        p          = nothing,
+        presmoother  = GaussSeidel(),
+        postsmoother = GaussSeidel(),
+        symmetry     = AMG.HermitianSymmetry(),
+    ) where T
+
+    n_levels = length(gh) - 1
+    @assert n_levels >= 1
+    @assert length(geo.levels) == n_levels
+    @assert length(dhh) == length(gh)
+    chh !== nothing && @assert length(chh) == length(gh)
+
+    TP, TR = fieldtypes(eltype(geo.levels))
+    TA = SparseMatrixCSC{T, Int}
+    levels = Vector{Level{TA, TP, TR}}()
+    w      = MultiLevelWorkspace(Val{1}, T)
+    residual!(w, size(A, 1))
+
+    cs    = config.coarse_strategy
+    cur_A = A
+
+    ch_coarse = nothing
+    for (i, (P, R)) in enumerate(geo.levels)
+        coarse_idx = n_levels + 1 - i
+        dh_coarse  = dhh[coarse_idx]
+        ch_coarse  = chh !== nothing ? chh[coarse_idx] : nothing
+
+        @timeit_debug "smoother setup" begin
+            pre  = AMG.setup_smoother(presmoother, cur_A, symmetry)
+            post = AMG.setup_smoother(postsmoother, cur_A, symmetry)
+            push!(levels, Level(cur_A, P, R, pre, post))
+        end
+
+        rap_ws = geo.rap_workspaces !== nothing ? geo.rap_workspaces[i] : nothing
+        cur_A = @timeit_debug "coarse matrix" _gmg_coarse_matrix(
+            cur_A, P, R, cs, dh_coarse, ch_coarse, u, p, rap_ws)
+
+        coarse_x!(w, size(cur_A, 1))
+        coarse_b!(w, size(cur_A, 1))
+        residual!(w, size(cur_A, 1))
+    end
+
+    coarse_solver = @timeit_debug "coarse solver setup" pcoarse_solver(cur_A)
+    return MultiLevel(levels, cur_A, coarse_solver, presmoother, postsmoother, w)
+end
+
+"""
     gmultigrid(A, gh, dhh, chh, config, pcoarse_solver; kwargs...)
 
 Build a geometric multigrid preconditioner / solver for `Ax = b`.
+
+This is a convenience wrapper that calls [`gmultigrid_symbolic`](@ref) followed by
+[`gmultigrid_numeric!`](@ref).  When rebuilding across Newton iterations, prefer
+caching the [`MultilevelGeometry`](@ref) from `gmultigrid_symbolic` and calling
+`gmultigrid_numeric!` directly.
 
 # Arguments
 - `A`             – assembled fine-grid matrix
@@ -168,58 +423,27 @@ function gmultigrid(
         gh::GridHierarchy,
         dhh::DofHandlerHierarchy,
         chh::Union{ConstraintHandlerHierarchy, Nothing},
-        config::GMultigridConfiguration,
+        config::GMultigridConfiguration{<:Galerkin},
         pcoarse_solver;
-        u          = nothing,
-        p          = nothing,
-        presmoother  = GaussSeidel(),
-        postsmoother = GaussSeidel(),
-        symmetry     = AMG.HermitianSymmetry(),
+        kwargs...,
     ) where T
 
-    n_levels = length(gh) - 1  # number of level transitions (1 = one coarsening step)
-    @assert n_levels >= 1
-    @assert length(dhh) == length(gh) "dhh must have length $(length(gh))"
-    chh !== nothing && @assert length(chh) == length(gh) "chh must have length $(length(gh))"
+    geo = @timeit_debug "gmultigrid symbolic" gmultigrid_symbolic(gh, dhh, config, A)
+    return @timeit_debug "gmultigrid numeric" gmultigrid_numeric!(geo, A, gh, dhh, chh, config, pcoarse_solver; kwargs...)
+end
 
-    # AlgebraicMultigrid level list: levels[1] = finest, levels[end] = one above coarsest
-    levels = Level{SparseMatrixCSC{T,Int}, SparseMatrixCSC{T,Int}, Adjoint{T, SparseMatrixCSC{T,Int}}}[]
-    w      = MultiLevelWorkspace(Val{1}, T)
-    residual!(w, size(A, 1))
+function gmultigrid(
+        A::SparseMatrixCSC{T},
+        gh::GridHierarchy,
+        dhh::DofHandlerHierarchy,
+        chh::Union{ConstraintHandlerHierarchy, Nothing},
+        config::GMultigridConfiguration{<:Rediscretization},
+        pcoarse_solver;
+        kwargs...,
+    ) where T
 
-    cur_A = A
-
-    # Iterate from finest → coarsest
-    ch_coarse = nothing
-    ch_fine = nothing
-    for k in n_levels:-1:1
-        dh_fine   = dhh[k+1]   # fine level   (gh.grids[k+1])
-        dh_coarse = dhh[k]     # coarse level (gh.grids[k])
-        # Unpack ch pair if available
-        if chh !== nothing
-            ch_fine   = chh[k+1]
-            ch_coarse = chh[k]
-        end
-        f2c  = gh.fine2coarse[k]
-        crc  = gh.child_ref_coords[k]
-
-        P = @timeit_debug "build geometric prolongator" build_geometric_prolongator(
-                dh_fine, dh_coarse, f2c, crc)
-        R = @timeit_debug "build geometric restriction" P'
-
-        push!(levels, Level(cur_A, P, R))
-
-        cs = config.coarse_strategy
-        @timeit_debug "coarse matrix" cur_A = _gmg_coarse_matrix(
-            cur_A, P, R, cs, dh_coarse, ch_coarse, u, p)
-
-        coarse_x!(w, size(cur_A, 1))
-        coarse_b!(w, size(cur_A, 1))
-        residual!(w, size(cur_A, 1))
-    end
-
-    coarse_solver = @timeit_debug "coarse solver setup" pcoarse_solver(cur_A)
-    return MultiLevel(levels, cur_A, coarse_solver, presmoother, postsmoother, w)
+    geo = @timeit_debug "gmultigrid symbolic" gmultigrid_symbolic(gh, dhh, config)
+    return @timeit_debug "gmultigrid numeric" gmultigrid_numeric!(geo, A, gh, dhh, chh, config, pcoarse_solver; kwargs...)
 end
 
 """
