@@ -255,7 +255,6 @@ builder_gal = PMultigridPreconBuilder(dhh, chh, config_gal; pcoarse_solver)
 config_red = pmultigrid_config(coarse_strategy = Rediscretization(LinearElasticityIntegrator(C, QuadratureRuleCollection(7))))
 @timeit "Rediscretization only" x_red, res_red = solve(A, b, dhh, chh, config_red; pcoarse_solver, log=true, maxiter = 1000, rtol = 1e-10)
 
-# Broken. See https://github.com/JuliaLang/julia/issues/61839
 builder_red = PMultigridPreconBuilder(dhh, chh, config_red; pcoarse_solver)
 @timeit "Build preconditioner" Pl_red = builder_red(A)[1]
 @timeit "Rediscretization CG" x_rcg, res_rcg = IterativeSolvers.cg(A, b; Pl = Pl_red, maxiter = 1000, log=true, verbose=false)
