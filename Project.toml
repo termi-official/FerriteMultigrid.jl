@@ -1,6 +1,6 @@
 name = "FerriteMultigrid"
 uuid = "69a0a054-a29c-4d77-8818-cd7ec12cfcdc"
-version = "0.2.2"
+version = "0.2.3"
 authors = ["Abdelrahman F. Abdelrahman, Dennis Ogiermann, and contributors"]
 
 [deps]
@@ -20,7 +20,7 @@ AlgebraicMultigrid = "2"
 CommonSolve = "0.2.4"
 Ferrite = "1"
 FerriteGmsh = "1.2.1"
-FerriteOperators = "0.4"
+FerriteOperators = "0.4, 0.5"
 IterativeSolvers = "0.9"
 LinearAlgebra = "1"
 LinearSolve = "3.17, 4, 5"
